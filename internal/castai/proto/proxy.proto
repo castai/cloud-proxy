@@ -4,14 +4,11 @@ package gcpproxy;
 
 option go_package = ".;proto";
 
+// TODO: Keep-alives
+
+
 service GCPProxyServer {
   rpc Proxy(stream HttpResponse) returns (stream HttpRequest);
-  rpc HelloPing(Ping) returns (Ping);
-}
-
-
-message Ping {
-  string hello = 1;
 }
 
 message HttpResponse {
