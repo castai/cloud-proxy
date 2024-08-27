@@ -11,27 +11,30 @@ type Dispatcher struct {
 	pendingRequests map[string]chan *proto.HttpResponse
 	locker          sync.Mutex
 
-	ProxyRequestChan  chan<- *proto.HttpRequest
-	ProxyResponseChan <-chan *proto.HttpResponse
+	proxyRequestChan  chan<- *proto.HttpRequest
+	proxyResponseChan <-chan *proto.HttpResponse
+
+	logger *log.Logger
 }
 
-func NewDispatcher(requestChan chan<- *proto.HttpRequest, responseChan <-chan *proto.HttpResponse) *Dispatcher {
+func NewDispatcher(requestChan chan<- *proto.HttpRequest, responseChan <-chan *proto.HttpResponse, logger *log.Logger) *Dispatcher {
 	return &Dispatcher{
 		pendingRequests:   make(map[string]chan *proto.HttpResponse),
 		locker:            sync.Mutex{},
-		ProxyRequestChan:  requestChan,
-		ProxyResponseChan: responseChan,
+		proxyRequestChan:  requestChan,
+		proxyResponseChan: responseChan,
+		logger:            logger,
 	}
 }
 
 func (d *Dispatcher) Run() {
 	go func() {
-		log.Println("starting response returning loop")
+		d.logger.Println("starting response returning loop")
 		for {
-			for resp := range d.ProxyResponseChan {
+			for resp := range d.proxyResponseChan {
 				waiter := d.findWaiterForResponse(resp.RequestID)
 				waiter <- resp
-				log.Println("Sent a response back to caller")
+				d.logger.Println("Sent a response back to caller")
 			}
 		}
 	}()
@@ -39,7 +42,7 @@ func (d *Dispatcher) Run() {
 
 func (d *Dispatcher) SendRequest(req *proto.HttpRequest) (<-chan *proto.HttpResponse, error) {
 	waiter := d.addRequestToWaitingList(req.RequestID)
-	d.ProxyRequestChan <- req
+	d.proxyRequestChan <- req
 	return waiter, nil
 }
 
@@ -55,7 +58,7 @@ func (d *Dispatcher) findWaiterForResponse(requestID string) chan *proto.HttpRes
 	d.locker.Lock()
 	val, ok := d.pendingRequests[requestID]
 	if !ok {
-		log.Panicln("Trying to send a response for non-existent request", requestID)
+		d.logger.Panicln("Trying to send a response for non-existent request", requestID)
 	}
 	delete(d.pendingRequests, requestID)
 	d.locker.Unlock()

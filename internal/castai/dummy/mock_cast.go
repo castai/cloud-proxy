@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"sync"
 
 	"golang.org/x/sync/errgroup"
@@ -22,25 +23,24 @@ type MockCast struct {
 }
 
 func (mc *MockCast) Run() error {
+	logger := log.New(os.Stderr, "[CAST-MOCK] ", log.LstdFlags)
+
 	requestChan, respChan := make(chan *proto.HttpRequest), make(chan *proto.HttpResponse)
 
 	// Start the mock server
 	listener, err := net.Listen("tcp", ":50051")
 	if err != nil {
-		log.Panicf("Failed to listen: %v", err)
+		logger.Panicf("Failed to listen: %v", err)
 	}
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterGCPProxyServerServer(grpcServer, &MockCastServer{
-		RequestChan:  requestChan,
-		ResponseChan: respChan,
-	})
+	proto.RegisterGCPProxyServerServer(grpcServer, NewMockCastServer(requestChan, respChan, logger))
 
-	dispatcher := NewDispatcher(requestChan, respChan)
+	dispatcher := NewDispatcher(requestChan, respChan, logger)
 
-	epMock, err := newMockEP(dispatcher)
+	epMock, err := newMockEP(dispatcher, logger)
 	if err != nil {
-		log.Panicf("Failed to create ep mock: %v", err)
+		logger.Panicf("Failed to create ep mock: %v", err)
 	}
 
 	var wg sync.WaitGroup
@@ -58,7 +58,7 @@ func (mc *MockCast) Run() error {
 		dispatcher.Run()
 
 		if err := grpcServer.Serve(listener); err != nil {
-			log.Panicf("Failed to serve mock cast: %v", err)
+			logger.Panicf("Failed to serve mock cast: %v", err)
 		}
 	}()
 
@@ -70,35 +70,41 @@ func (mc *MockCast) Run() error {
 type MockCastServer struct {
 	proto.UnimplementedGCPProxyServerServer
 
-	RequestChan  <-chan *proto.HttpRequest
-	ResponseChan chan<- *proto.HttpResponse
+	requestChan  <-chan *proto.HttpRequest
+	responseChan chan<- *proto.HttpResponse
+
+	logger *log.Logger
 }
 
-func NewMockCastServer(requestChan <-chan *proto.HttpRequest, responseChan chan<- *proto.HttpResponse) *MockCastServer {
-	return &MockCastServer{RequestChan: requestChan, ResponseChan: responseChan}
+func NewMockCastServer(requestChan <-chan *proto.HttpRequest, responseChan chan<- *proto.HttpResponse, logger *log.Logger) *MockCastServer {
+	return &MockCastServer{
+		requestChan:  requestChan,
+		responseChan: responseChan,
+		logger:       logger,
+	}
 }
 
 func (msrv *MockCastServer) Proxy(stream proto.GCPProxyServer_ProxyServer) error {
-	log.Println("Received a proxy connection from client")
+	msrv.logger.Println("Received a proxy connection from client")
 
 	var eg errgroup.Group
 
 	// TODO: errs
 	eg.Go(func() error {
-		log.Println("Starting request sender")
+		msrv.logger.Println("Starting request sender")
 
-		for req := range msrv.RequestChan {
-			log.Println("Sending request to cluster proxy client")
+		for req := range msrv.requestChan {
+			msrv.logger.Println("Sending request to cluster proxy client")
 
 			if err := stream.Send(req); err != nil {
-				log.Printf("Error sending request: %v\n", err)
+				msrv.logger.Printf("Error sending request: %v\n", err)
 			}
 		}
 		return nil
 	})
 
 	eg.Go(func() error {
-		log.Println("Starting response receiver")
+		msrv.logger.Println("Starting response receiver")
 
 		for {
 			in, err := stream.Recv()
@@ -107,18 +113,18 @@ func (msrv *MockCastServer) Proxy(stream proto.GCPProxyServer_ProxyServer) error
 				return err
 			}
 			if err != nil {
-				log.Printf("Error in response receiver: %v\n", err)
+				msrv.logger.Printf("Error in response receiver: %v\n", err)
 				return err
 			}
 
-			log.Printf("Got a response from client: %v, %v\n", in.RequestID, in.Status)
-			msrv.ResponseChan <- in
+			msrv.logger.Printf("Got a response from client: %v, %v\n", in.RequestID, in.Status)
+			msrv.responseChan <- in
 		}
 	})
 
 	if err := eg.Wait(); err != nil {
 		return err
 	}
-	log.Println("Closing proxy connection")
+	msrv.logger.Println("Closing proxy connection")
 	return nil
 }

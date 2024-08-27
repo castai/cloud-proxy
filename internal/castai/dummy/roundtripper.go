@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -14,10 +15,12 @@ import (
 
 type HttpOverGrpcRoundTripper struct {
 	dispatcher *Dispatcher
+
+	logger *log.Logger
 }
 
-func NewHttpOverGrpcRoundTripper(dispatcher *Dispatcher) *HttpOverGrpcRoundTripper {
-	return &HttpOverGrpcRoundTripper{dispatcher: dispatcher}
+func NewHttpOverGrpcRoundTripper(dispatcher *Dispatcher, logger *log.Logger) *HttpOverGrpcRoundTripper {
+	return &HttpOverGrpcRoundTripper{dispatcher: dispatcher, logger: logger}
 }
 
 func (p *HttpOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -49,7 +52,7 @@ func (p *HttpOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Respo
 	}
 
 	response := <-waiter
-	fmt.Println("Received a response back from dispatcher", requestID)
+	p.logger.Println("Received a response back from dispatcher", requestID)
 
 	// Convert to response
 	resp := &http.Response{
