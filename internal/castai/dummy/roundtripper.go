@@ -1,4 +1,4 @@
-package proxy
+package dummy
 
 import (
 	"bytes"
@@ -12,17 +12,15 @@ import (
 	"github.com/castai/cloud-proxy/internal/castai/proto"
 )
 
-// RoundTripper does proxying via Executor instance directly; useful to test without a grpc connection
-type RoundTripper struct {
-	executor *Executor
+type HttpOverGrpcRoundTripper struct {
+	dispatcher *Dispatcher
 }
 
-func NewProxyRoundTripper(executor *Executor) *RoundTripper {
-	return &RoundTripper{executor: executor}
+func NewHttpOverGrpcRoundTripper(dispatcher *Dispatcher) *HttpOverGrpcRoundTripper {
+	return &HttpOverGrpcRoundTripper{dispatcher: dispatcher}
 }
 
-func (p *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
-	fmt.Println("Sending request to dispatcher", request)
+func (p *HttpOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
 	requestID := uuid.New().String()
 
 	headers := make(map[string]string)
@@ -45,14 +43,15 @@ func (p *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error) 
 			return body
 		}(),
 	}
-	response, err := p.executor.DoRequest(protoReq)
+	waiter, err := p.dispatcher.SendRequest(protoReq)
 	if err != nil {
 		return nil, fmt.Errorf("error sending request: %v", err)
 	}
 
-	//fmt.Println("Received a response back from dispatcher", requestID, response)
+	response := <-waiter
+	fmt.Println("Received a response back from dispatcher", requestID, response)
 
-	// Convert to http response
+	// Convert to response
 	resp := &http.Response{
 		Status:     http.StatusText(int(response.Status)),
 		StatusCode: int(response.Status),

@@ -13,7 +13,10 @@ import (
 	"github.com/googleapis/gax-go/v2/apierror"
 	"google.golang.org/api/option"
 	htransport "google.golang.org/api/transport/http"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/castai/cloud-proxy/internal/castai/dummy"
 	"github.com/castai/cloud-proxy/internal/gcpauth"
 	"github.com/castai/cloud-proxy/internal/proxy"
 )
@@ -25,10 +28,42 @@ const (
 )
 
 func main() {
-	fmt.Println("Hi")
+	//runBasicTests()
+	//go runProxyTest()
 
-	runBasicTests()
-	runProxyTest()
+	go func() {
+		log.Println("Starting mock cast instance")
+		mockCast := &dummy.MockCast{}
+		if err := mockCast.Run(); err != nil {
+			log.Panicln("Error running mock Cast:", err)
+		}
+	}()
+
+	go func() {
+		log.Println("Starting proxy client")
+		conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			log.Fatalf("Failed to connect to server: %v", err)
+		}
+		defer func(conn *grpc.ClientConn) {
+			err := conn.Close()
+			if err != nil {
+				log.Fatalf("Failed to close gRPC connection: %v", err)
+			}
+		}(conn)
+
+		src := gcpauth.GCPCredentialsSource{}
+		executor := proxy.NewExecutor(src, http.DefaultClient)
+		client := proxy.NewClient(executor)
+		client.Run(conn)
+	}()
+
+	time.Sleep(1 * time.Hour)
+
+	// Start local proxy
+
+	// Option 1 - connect to mothership
+	// Option 2 - use local server that "simulates" mothership
 }
 
 func runBasicTests() {
@@ -120,7 +155,7 @@ func runProxyTest() {
 		if err != nil {
 			panic(fmt.Errorf("getting cluster through proxy: %w", err))
 		}
-		fmt.Printf("Got successful response for cluster via proxy: %v: %v\n", getClusterResponse.Name, getClusterResponse.GetStatus())
+		fmt.Printf("Got successful response for cluster via local proxy: %v: %v\n", getClusterResponse.Name, getClusterResponse.GetStatus())
 		time.Sleep(10 * time.Second)
 	}
 }
