@@ -25,9 +25,11 @@ spec:
             limits:
               memory: "10Mi"
           imagePullPolicy: Always
-          env:
-            - name: ENV_VARIABLE_NAME # Example environment variable
-              value: "value"
+          command:
+            - "castai-cloud-proxy"
+          args:
+            - "-sanity-checks=true"
+            - "-mockcast=true"
 ---
 apiVersion: v1
 kind: ServiceAccount

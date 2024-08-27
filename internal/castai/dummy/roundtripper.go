@@ -49,7 +49,7 @@ func (p *HttpOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Respo
 	}
 
 	response := <-waiter
-	fmt.Println("Received a response back from dispatcher", requestID, response)
+	fmt.Println("Received a response back from dispatcher", requestID)
 
 	// Convert to response
 	resp := &http.Response{

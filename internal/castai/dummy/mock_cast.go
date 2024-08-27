@@ -88,7 +88,7 @@ func (msrv *MockCastServer) Proxy(stream proto.GCPProxyServer_ProxyServer) error
 		log.Println("Starting request sender")
 
 		for req := range msrv.RequestChan {
-			log.Println("Sending request to client:", req)
+			log.Println("Sending request to cluster proxy client")
 
 			if err := stream.Send(req); err != nil {
 				log.Printf("Error sending request: %v\n", err)
@@ -111,7 +111,7 @@ func (msrv *MockCastServer) Proxy(stream proto.GCPProxyServer_ProxyServer) error
 				return err
 			}
 
-			log.Printf("Got a response from client: %v\n", in)
+			log.Printf("Got a response from client: %v, %v\n", in.RequestID, in.Status)
 			msrv.ResponseChan <- in
 		}
 	})

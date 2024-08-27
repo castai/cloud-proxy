@@ -1,4 +1,4 @@
-package proxy
+package localtest
 
 import (
 	"bytes"
@@ -10,19 +10,21 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/castai/cloud-proxy/internal/castai/proto"
+	"github.com/castai/cloud-proxy/internal/proxy"
 )
 
-// RoundTripper does proxying via Executor instance directly; useful to test without a grpc connection
+// RoundTripper does proxying via Executor instance directly in-process.
+// Useful to test without a grpc connection or Cast at all; just to isolate if a http request can be modified successfully.
 type RoundTripper struct {
-	executor *Executor
+	executor *proxy.Executor
 }
 
-func NewProxyRoundTripper(executor *Executor) *RoundTripper {
+func NewProxyRoundTripper(executor *proxy.Executor) *RoundTripper {
 	return &RoundTripper{executor: executor}
 }
 
 func (p *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
-	fmt.Println("Sending request to dispatcher", request)
+	fmt.Println("Sending request to dispatcher")
 	requestID := uuid.New().String()
 
 	headers := make(map[string]string)
@@ -49,8 +51,6 @@ func (p *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error) 
 	if err != nil {
 		return nil, fmt.Errorf("error sending request: %v", err)
 	}
-
-	//fmt.Println("Received a response back from dispatcher", requestID, response)
 
 	// Convert to http response
 	resp := &http.Response{
