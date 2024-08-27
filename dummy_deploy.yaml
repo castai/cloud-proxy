@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-proxy-deployment
+  labels:
+    app: cloud-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloud-proxy
+  template:
+    metadata:
+      labels:
+        app: cloud-proxy
+    spec:
+      serviceAccountName: castai-cloud-proxy
+      containers:
+        - name: cloud-proxy-container
+          image: docker.io/lachezarcast/cloud-proxy@{{IMAGE_DIGEST}}
+          resources:
+            requests:
+              memory: "10Mi"
+              cpu: "50m"
+            limits:
+              memory: "10Mi"
+          imagePullPolicy: Always
+          env:
+            - name: ENV_VARIABLE_NAME # Example environment variable
+              value: "value"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: castai-cloud-proxy
+  namespace: default
