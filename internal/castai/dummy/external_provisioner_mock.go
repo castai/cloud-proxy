@@ -49,7 +49,7 @@ func (m *mockEP) simulateActivity() {
 		if err != nil {
 			m.logger.Panicf("%v\n", fmt.Errorf("getting cluster through proxy: %w", err))
 		}
-		fmt.Printf("Got successful response for cluster via proxy: %v: %v\n", getClusterResponse.Name, getClusterResponse.GetStatus())
+		m.logger.Printf("Got successful response for cluster via proxy: %v: %v\n", getClusterResponse.Name, getClusterResponse.GetStatus())
 		time.Sleep(time.Duration(rand.IntN(5)) * time.Second)
 	}
 }

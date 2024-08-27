@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"time"
@@ -14,10 +13,12 @@ import (
 
 type Client struct {
 	executor *Executor
+
+	logger *log.Logger
 }
 
-func NewClient(executor *Executor) *Client {
-	return &Client{executor: executor}
+func NewClient(executor *Executor, logger *log.Logger) *Client {
+	return &Client{executor: executor, logger: logger}
 }
 
 func (client *Client) Run(grpcConn *grpc.ClientConn) {
@@ -26,11 +27,11 @@ func (client *Client) Run(grpcConn *grpc.ClientConn) {
 	// Outer loop is a dumb re-connect version
 	for {
 		time.Sleep(1 * time.Second)
-		fmt.Println("Connecting to castai")
+		client.logger.Println("Connecting to castai")
 
 		stream, err := grpcClient.Proxy(context.Background())
 		if err != nil {
-			log.Printf("error connecting to castai: %v\n", err)
+			client.logger.Printf("error connecting to castai: %v\n", err)
 			continue
 		}
 
@@ -38,32 +39,32 @@ func (client *Client) Run(grpcConn *grpc.ClientConn) {
 		for {
 			in, err := stream.Recv()
 			if err == io.EOF {
-				log.Println("Reconnecting")
+				client.logger.Println("Reconnecting")
 				break
 			}
 			if err != nil {
-				log.Printf("error receiving from castai: %v; closing stream\n", err)
+				client.logger.Printf("error receiving from castai: %v; closing stream\n", err)
 				err = stream.CloseSend()
 				if err != nil {
-					log.Println("error closing stream", err)
+					client.logger.Println("error closing stream", err)
 				}
 				// Reconnect by stopping inner loop
 				break
 			}
 
 			go func() {
-				log.Println("Received message from server for proxying:", in.RequestID)
+				client.logger.Println("Received message from server for proxying:", in.RequestID)
 				resp, err := client.executor.DoRequest(in)
 				if err != nil {
-					log.Println("error executing request", err)
+					client.logger.Println("error executing request", err)
 					// TODO: Sent error as metadata to cast
 					return
 				}
-				log.Println("got response for request:", resp.RequestID)
+				client.logger.Println("got response for request:", resp.RequestID)
 
 				err = stream.Send(resp)
 				if err != nil {
-					log.Println("error sending response to CAST", err)
+					client.logger.Println("error sending response to CAST", err)
 					return
 				}
 			}()

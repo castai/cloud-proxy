@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"google.golang.org/grpc"
@@ -50,21 +51,22 @@ func main() {
 		}()
 
 		go func() {
-			log.Println("Starting proxy client")
+			loggerClientProxy := log.New(os.Stderr, "[CLUSTER PROXY] ", log.LstdFlags)
+			loggerClientProxy.Println("Starting proxy client")
 			conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
-				log.Panicf("Failed to connect to server: %v", err)
+				loggerClientProxy.Panicf("Failed to connect to server: %v", err)
 			}
 			defer func(conn *grpc.ClientConn) {
 				err := conn.Close()
 				if err != nil {
-					log.Panicf("Failed to close gRPC connection: %v", err)
+					loggerClientProxy.Panicf("Failed to close gRPC connection: %v", err)
 				}
 			}(conn)
 
 			src := gcpauth.GCPCredentialsSource{}
 			executor := proxy.NewExecutor(src, http.DefaultClient)
-			client := proxy.NewClient(executor)
+			client := proxy.NewClient(executor, loggerClientProxy)
 			client.Run(conn)
 		}()
 	}
