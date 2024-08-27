@@ -1,56 +1,72 @@
 package proxy
 
-//
-//import (
-//	"fmt"
-//	"net/http"
-//
-//	"github.com/castai/cloud-proxy/internal/gcpauth"
-//)
-//
-//type Executor struct {
-//	credentialsSrc gcpauth.GCPCredentialsSource
-//	client         *http.Client
-//}
-//
-//func (e *Executor) DoRequest(request *http.Request) (*http.Response, error) {
-//
-//	credentials, err := e.credentialsSrc.GetDefaultCredentials()
-//	if err != nil {
-//		return nil, fmt.Errorf("cannot load GCP credentials: %w", err)
-//	}
-//
-//	token, err := credentials.TokenSource.Token()
-//	if err != nil {
-//		return nil, fmt.Errorf("cannot get access token from src (%T): %w", credentials.TokenSource, err)
-//	}
-//
-//	req, err := http.NewRequest(request.Method, request.URL.String(), request.Body)
-//	return nil, nil
-//}
-//
-////creds := getGCPCredential()
-////
-////token, err := creds.TokenSource.Token()
-////if err != nil {
-////return nil, fmt.Errorf("failed to get auth token: %w", err)
-////}
-////
-////req, err := http.NewRequest(protoReq.Method, protoReq.Url, bytes.NewReader(protoReq.Body))
-////if err != nil {
-////return nil, fmt.Errorf("failed to create proxy http request: %w", err)
-////}
-////
-////// Set the authorize header manually
-////req.Header.Add("Authorization", "Bearer "+token.AccessToken)
-////for header, val := range protoReq.Headers {
-////if strings.ToLower(header) == "authorization" {
-////continue
-////}
-////req.Header.Add(header, val)
-////}
-////
-////resp, err := e.client.Do(req)
-////if err != nil {
-////return nil, fmt.Errorf("unexpected err for %+v: %w", protoReq, err)
-////}
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+
+	"github.com/castai/cloud-proxy/internal/castai/proto"
+	"github.com/castai/cloud-proxy/internal/gcpauth"
+)
+
+type Executor struct {
+	credentialsSrc gcpauth.GCPCredentialsSource
+	client         *http.Client
+}
+
+func NewExecutor(credentialsSrc gcpauth.GCPCredentialsSource, client *http.Client) *Executor {
+	return &Executor{credentialsSrc: credentialsSrc, client: client}
+}
+
+func (e *Executor) DoRequest(request *proto.HttpRequest) (*proto.HttpResponse, error) {
+	credentials, err := e.credentialsSrc.GetDefaultCredentials()
+	if err != nil {
+		return nil, fmt.Errorf("cannot load GCP credentials: %w", err)
+	}
+
+	token, err := credentials.TokenSource.Token()
+	if err != nil {
+		return nil, fmt.Errorf("cannot get access token from src (%T): %w", credentials.TokenSource, err)
+	}
+
+	httpReq, err := http.NewRequest(request.Method, request.Url, bytes.NewReader(request.Body))
+	if err != nil {
+		return nil, fmt.Errorf("cannot create http request: %w", err)
+	}
+	for header, val := range request.Headers {
+		httpReq.Header.Add(header, val)
+	}
+	// Set the authorize header manually since we can't rely on mothership auth
+	httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token.AccessToken))
+
+	//log.Println("Sending request:", httpReq)
+	//log.Println("Auth header:", httpReq.Header.Get("Authorization"))
+
+	httpResponse, err := e.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("unexpected err for %+v: %w", request, err)
+	}
+
+	response := &proto.HttpResponse{
+		RequestID: request.RequestID,
+		Status:    int32(httpResponse.StatusCode),
+		Headers:   make(map[string]string),
+		Body: func() []byte {
+			if httpResponse.Body == nil {
+				return []byte{}
+			}
+			body, err := io.ReadAll(httpResponse.Body)
+			if err != nil {
+				panic(fmt.Errorf("failed to serialize body from request: %w", err))
+			}
+			return body
+		}(),
+	}
+	for header, val := range httpResponse.Header {
+		response.Headers[header] = strings.Join(val, ",")
+	}
+
+	return response, nil
+}
