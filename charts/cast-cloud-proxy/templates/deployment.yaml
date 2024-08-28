@@ -38,10 +38,6 @@ spec:
               value: {{ .Values.config.grpc.endpoint | quote }}
             - name: GRPC_KEY
               value: {{ .Values.config.grpc.key | quote }}
-            {{- if .Values.config.gcpCredentials }}
-            - name: GOOGLE_APPLICATION_CREDENTIALS2
-              value: dasd
-            {{- end }}
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
