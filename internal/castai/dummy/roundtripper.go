@@ -30,6 +30,7 @@ func (p *HttpOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Respo
 	for h, v := range request.Header {
 		headers[h] = strings.Join(v, ",")
 	}
+
 	protoReq := &proto.HttpRequest{
 		RequestID: requestID,
 		Method:    request.Method,

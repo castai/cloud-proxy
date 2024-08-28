@@ -53,7 +53,7 @@ func main() {
 		go func() {
 			loggerClientProxy := log.New(os.Stderr, "[CLUSTER PROXY] ", log.LstdFlags)
 			loggerClientProxy.Println("Starting proxy client")
-			conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				loggerClientProxy.Panicf("Failed to connect to server: %v", err)
 			}
