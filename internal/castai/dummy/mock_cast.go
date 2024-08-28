@@ -84,7 +84,7 @@ func NewMockCastServer(requestChan <-chan *proto.StreamCloudProxyResponse, respo
 	}
 }
 
-func (msrv *MockCastServer) Proxy(stream proto.CloudProxyAPI_StreamCloudProxyServer) error {
+func (msrv *MockCastServer) StreamCloudProxy(stream proto.CloudProxyAPI_StreamCloudProxyServer) error {
 	msrv.logger.Println("Received a proxy connection from client")
 
 	var eg errgroup.Group

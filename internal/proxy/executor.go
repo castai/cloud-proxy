@@ -50,10 +50,14 @@ func (e *Executor) DoRequest(request *proto.HTTPRequest) (*proto.HTTPResponse, e
 		return nil, fmt.Errorf("unexpected err for %+v: %w", request, err)
 	}
 
+	//log.Println("Got response:", httpResponse)
+	//body, _ := io.ReadAll(httpResponse.Body)
+	//log.Println("Response body:", string(body))
+
 	response := &proto.HTTPResponse{
-		//Status:  int32(httpResponse.StatusCode),
-		Status:  http.StatusText(httpResponse.StatusCode),
-		Headers: make(map[string]*proto.HeaderValue),
+		StatusCode: int32(httpResponse.StatusCode),
+		Status:     http.StatusText(httpResponse.StatusCode),
+		Headers:    make(map[string]*proto.HeaderValue),
 		Body: func() []byte {
 			if httpResponse.Body == nil {
 				return []byte{}

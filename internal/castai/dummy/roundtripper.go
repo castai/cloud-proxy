@@ -67,8 +67,8 @@ func (p *HttpOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Respo
 	// Convert to response
 	resp := &http.Response{
 		//Status:     http.StatusText(int(response.Status)),
-		//StatusCode: int(response.Status),
-		Status: response.Status,
+		StatusCode: int(response.StatusCode),
+		Status:     response.Status,
 		Header: func() http.Header {
 			headers := make(http.Header)
 			for key, value := range response.Headers {

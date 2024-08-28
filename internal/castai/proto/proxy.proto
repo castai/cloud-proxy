@@ -36,6 +36,7 @@ message HTTPResponse {
   optional string error = 2;
   string status = 3;
   map<string, HeaderValue> headers = 4;
+  int32 statusCode = 5;
 }
 
 message HeaderValue {

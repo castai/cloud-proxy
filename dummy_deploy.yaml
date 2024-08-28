@@ -28,7 +28,7 @@ spec:
           command:
             - "castai-cloud-proxy"
           args:
-            - "-sanity-checks=false"
+            - "-sanity-checks=true"
             - "-mockcast=true"
 ---
 apiVersion: v1
