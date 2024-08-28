@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "e2e.fullname" . }}
+  labels:
+    {{- include "e2e.labels" . | nindent 4}}
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "e2e.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+      - image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: Never
+        name: {{ .Chart.Name }}
+        ports:
+          - containerPort: 50051
+            name: grpc
+

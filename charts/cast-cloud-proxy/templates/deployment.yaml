@@ -33,12 +33,25 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: GRPC_ENDPOINT
+              value: {{ .Values.config.grpc.endpoint | quote }}
+            - name: GRPC_KEY
+              value: {{ .Values.config.grpc.key | quote }}
+            {{- if .Values.config.gcpCredentials }}
+            - name: GOOGLE_APPLICATION_CREDENTIALS2
+              value: dasd
+            {{- end }}
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+          - name: gcp-creds
+            mountPath: "/root/.config/gcloud"
+            readOnly: true
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -51,3 +64,8 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      volumes:
+        - name: gcp-creds
+          secret:
+            secretName: {{ include "cast-cloud-proxy.fullname" . }}-gcp-creds
+            optional: true

@@ -3,21 +3,21 @@ package proxy
 import (
 	"context"
 	"io"
-	"log"
 	"time"
 
 	"google.golang.org/grpc"
 
 	"github.com/castai/cloud-proxy/internal/castai/proto"
+	"github.com/sirupsen/logrus"
 )
 
 type Client struct {
 	executor *Executor
 
-	logger *log.Logger
+	logger *logrus.Logger
 }
 
-func NewClient(executor *Executor, logger *log.Logger) *Client {
+func NewClient(executor *Executor, logger *logrus.Logger) *Client {
 	return &Client{executor: executor, logger: logger}
 }
 

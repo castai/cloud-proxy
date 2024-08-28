@@ -1,0 +1,5 @@
+image:
+  repository: cloud-proxy-e2e
+  pullPolicy: IfNotPresent
+  tag: ""
+

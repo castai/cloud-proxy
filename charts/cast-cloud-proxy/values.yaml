@@ -2,6 +2,12 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+config:
+  gcpCredentials: ""
+  grpc:
+    endpoint: ""
+    key: ""
+
 replicaCount: 1
 
 image:

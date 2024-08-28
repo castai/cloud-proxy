@@ -19,7 +19,6 @@ import (
 //   - "dispatcher" that uses proxy to send requests
 //   - "client" that does GCP cloud calls
 type MockCast struct {
-	proxyServer *MockCastServer
 }
 
 func (mc *MockCast) Run() error {
