@@ -19,7 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CloudProxyAPI_StreamCloudProxy_FullMethodName = "/castai.cloud.proxy.v1alpha1.CloudProxyAPI/StreamCloudProxy"
+	CloudProxyAPI_StreamCloudProxy_FullMethodName = "/castai.cloud.proxy.v1.CloudProxyAPI/StreamCloudProxy"
 )
 
 // CloudProxyAPIClient is the client API for CloudProxyAPI service.
@@ -106,7 +106,7 @@ type CloudProxyAPI_StreamCloudProxyServer = grpc.BidiStreamingServer[StreamCloud
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var CloudProxyAPI_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "castai.cloud.proxy.v1alpha1.CloudProxyAPI",
+	ServiceName: "castai.cloud.proxy.v1.CloudProxyAPI",
 	HandlerType: (*CloudProxyAPIServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{

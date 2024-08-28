@@ -1,8 +1,13 @@
 syntax = "proto3";
 
-package castai.cloud.proxy.v1alpha1;
+package castai.cloud.proxy.v1;
 
 option go_package = ".;proto";
+
+
+//package castai.cloud.proxy.v1;
+//
+//option go_package = "github.com/castai/api-contracts/grpc/gen/go/proto/cloud-proxy/alpha;cloudproxyalpha";
 
 // CloudProxyAPI provides the API for proxying cloud requests for CAST AI External Provisioner.
 service CloudProxyAPI {
