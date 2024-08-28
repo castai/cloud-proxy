@@ -22,14 +22,14 @@ func NewClient(executor *Executor, logger *log.Logger) *Client {
 }
 
 func (client *Client) Run(grpcConn *grpc.ClientConn) {
-	grpcClient := proto.NewGCPProxyServerClient(grpcConn)
+	grpcClient := proto.NewCloudProxyAPIClient(grpcConn)
 
 	// Outer loop is a dumb re-connect version
 	for {
 		time.Sleep(1 * time.Second)
 		client.logger.Println("Connecting to castai")
 
-		stream, err := grpcClient.Proxy(context.Background())
+		stream, err := grpcClient.StreamCloudProxy(context.Background())
 		if err != nil {
 			client.logger.Printf("error connecting to castai: %v\n", err)
 			continue
@@ -53,16 +53,20 @@ func (client *Client) Run(grpcConn *grpc.ClientConn) {
 			}
 
 			go func() {
-				client.logger.Println("Received message from server for proxying:", in.RequestID)
-				resp, err := client.executor.DoRequest(in)
+				client.logger.Println("Received message from server for proxying:", in.GetMessageId())
+				resp, err := client.executor.DoRequest(in.GetHttpRequest())
 				if err != nil {
 					client.logger.Println("error executing request", err)
 					// TODO: Sent error as metadata to cast
 					return
 				}
-				client.logger.Println("got response for request:", resp.RequestID)
+				client.logger.Println("got response for request:", in.GetMessageId())
 
-				err = stream.Send(resp)
+				response := &proto.StreamCloudProxyRequest{
+					MessageId:    in.GetMessageId(),
+					HttpResponse: resp,
+				}
+				err = stream.Send(response)
 				if err != nil {
 					client.logger.Println("error sending response to CAST", err)
 					return

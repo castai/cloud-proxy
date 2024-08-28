@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
-
 	"github.com/castai/cloud-proxy/internal/castai/proto"
 	"github.com/castai/cloud-proxy/internal/proxy"
 )
@@ -24,18 +22,26 @@ func NewProxyRoundTripper(executor *proxy.Executor) *RoundTripper {
 }
 
 func (p *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
-	fmt.Println("Sending request to dispatcher")
-	requestID := uuid.New().String()
-
+	fmt.Println("Sending request to executor")
 	headers := make(map[string]string)
 	for h, v := range request.Header {
 		headers[h] = strings.Join(v, ",")
 	}
-	protoReq := &proto.HttpRequest{
-		RequestID: requestID,
-		Method:    request.Method,
-		Url:       request.URL.String(),
-		Headers:   headers,
+	protoReq := &proto.HTTPRequest{
+		Method: request.Method,
+		Path:   request.URL.String(),
+		Headers: func() map[string]*proto.HeaderValue {
+			result := make(map[string]*proto.HeaderValue)
+			for h, v := range request.Header {
+				result[h] = &proto.HeaderValue{
+					Value: make([]string, 0, len(v)),
+				}
+				for i := range v {
+					result[h].Value = append(result[h].Value, v[i])
+				}
+			}
+			return result
+		}(),
 		Body: func() []byte {
 			if request.Body == nil {
 				return []byte{}
@@ -54,12 +60,15 @@ func (p *RoundTripper) RoundTrip(request *http.Request) (*http.Response, error) 
 
 	// Convert to http response
 	resp := &http.Response{
-		Status:     http.StatusText(int(response.Status)),
-		StatusCode: int(response.Status),
+		//Status:     http.StatusText(int(response.Status)),
+		//StatusCode: int(response.Status),
+		Status: response.Status,
 		Header: func() http.Header {
 			headers := make(http.Header)
 			for key, value := range response.Headers {
-				headers[key] = strings.Split(value, ",")
+				for _, hv := range value.GetValue() {
+					headers[key] = append(headers[key], hv)
+				}
 			}
 			return headers
 		}(),

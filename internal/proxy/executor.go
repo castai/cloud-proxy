@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/castai/cloud-proxy/internal/castai/proto"
 	"github.com/castai/cloud-proxy/internal/gcpauth"
@@ -20,7 +19,7 @@ func NewExecutor(credentialsSrc gcpauth.GCPCredentialsSource, client *http.Clien
 	return &Executor{credentialsSrc: credentialsSrc, client: client}
 }
 
-func (e *Executor) DoRequest(request *proto.HttpRequest) (*proto.HttpResponse, error) {
+func (e *Executor) DoRequest(request *proto.HTTPRequest) (*proto.HTTPResponse, error) {
 	credentials, err := e.credentialsSrc.GetDefaultCredentials()
 	if err != nil {
 		return nil, fmt.Errorf("cannot load GCP credentials: %w", err)
@@ -31,12 +30,14 @@ func (e *Executor) DoRequest(request *proto.HttpRequest) (*proto.HttpResponse, e
 		return nil, fmt.Errorf("cannot get access token from src (%T): %w", credentials.TokenSource, err)
 	}
 
-	httpReq, err := http.NewRequest(request.Method, request.Url, bytes.NewReader(request.Body))
+	httpReq, err := http.NewRequest(request.Method, request.GetPath(), bytes.NewReader(request.Body))
 	if err != nil {
 		return nil, fmt.Errorf("cannot create http request: %w", err)
 	}
 	for header, val := range request.Headers {
-		httpReq.Header.Add(header, val)
+		for _, hv := range val.GetValue() {
+			httpReq.Header.Add(header, hv)
+		}
 	}
 	// Set the authorize header manually since we can't rely on mothership auth
 	httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token.AccessToken))
@@ -49,10 +50,10 @@ func (e *Executor) DoRequest(request *proto.HttpRequest) (*proto.HttpResponse, e
 		return nil, fmt.Errorf("unexpected err for %+v: %w", request, err)
 	}
 
-	response := &proto.HttpResponse{
-		RequestID: request.RequestID,
-		Status:    int32(httpResponse.StatusCode),
-		Headers:   make(map[string]string),
+	response := &proto.HTTPResponse{
+		//Status:  int32(httpResponse.StatusCode),
+		Status:  http.StatusText(httpResponse.StatusCode),
+		Headers: make(map[string]*proto.HeaderValue),
 		Body: func() []byte {
 			if httpResponse.Body == nil {
 				return []byte{}
@@ -65,7 +66,7 @@ func (e *Executor) DoRequest(request *proto.HttpRequest) (*proto.HttpResponse, e
 		}(),
 	}
 	for header, val := range httpResponse.Header {
-		response.Headers[header] = strings.Join(val, ",")
+		response.Headers[header] = &proto.HeaderValue{Value: val}
 	}
 
 	return response, nil
