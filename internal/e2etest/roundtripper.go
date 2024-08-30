@@ -1,4 +1,4 @@
-package dummy
+package e2etest
 
 import (
 	"bytes"

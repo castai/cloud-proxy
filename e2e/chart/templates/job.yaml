@@ -5,6 +5,7 @@ metadata:
   labels:
     {{- include "e2e.labels" . | nindent 4}}
 spec:
+  backoffLimit: 0
   template:
     metadata:
       labels:
@@ -13,7 +14,7 @@ spec:
       restartPolicy: Never
       containers:
       - image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
-        imagePullPolicy: Never
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: {{ .Chart.Name }}
         ports:
           - containerPort: 50051

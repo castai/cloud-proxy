@@ -9,14 +9,15 @@ import (
 
 	container "cloud.google.com/go/container/apiv1"
 	"cloud.google.com/go/container/apiv1/containerpb"
+	"github.com/castai/cloud-proxy/internal/e2etest"
 	"google.golang.org/api/option"
 	htransport "google.golang.org/api/transport/http"
 )
 
 const (
 	projectID   = "engineering-test-353509"
-	location    = "europe-north1-a"
-	testCluster = "lachezar-2708"
+	location    = "europe-central2"
+	testCluster = "damianc"
 )
 
 type mockEP struct {
@@ -24,12 +25,12 @@ type mockEP struct {
 	logger    *log.Logger
 }
 
-func newMockEP(dispatcher *Dispatcher, logger *log.Logger) (*mockEP, error) {
+func newMockEP(dispatcher *e2etest.Dispatcher, logger *log.Logger) (*mockEP, error) {
 	httpClient, _, err := htransport.NewClient(context.Background(), option.WithoutAuthentication())
 	if err != nil {
 		return nil, err
 	}
-	httpClient.Transport = NewHttpOverGrpcRoundTripper(dispatcher, logger)
+	httpClient.Transport = e2etest.NewHttpOverGrpcRoundTripper(dispatcher, logger)
 	gkeProxiedClient, err := container.NewClusterManagerRESTClient(
 		context.Background(),
 		option.WithoutAuthentication(),

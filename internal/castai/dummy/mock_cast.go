@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/castai/cloud-proxy/internal/castai/proto"
+	"github.com/castai/cloud-proxy/internal/e2etest"
 )
 
 // MockCast simulates what cast would do but runs it in the same process:
@@ -35,7 +36,7 @@ func (mc *MockCast) Run() error {
 	grpcServer := grpc.NewServer()
 	proto.RegisterGCPProxyServerServer(grpcServer, NewMockCastServer(requestChan, respChan, logger))
 
-	dispatcher := NewDispatcher(requestChan, respChan, logger)
+	dispatcher := e2etest.NewDispatcher(requestChan, respChan, logger)
 
 	epMock, err := newMockEP(dispatcher, logger)
 	if err != nil {

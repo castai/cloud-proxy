@@ -1,10 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eEu
 
 CLUSTER_NAME=cloud-proxy-e2e
 IMAGE_TAG=$RANDOM
 
+shout() {
+	echo "============= $(date) ==============="
+	echo "= $1"
+	echo "==========================================================="
+}
 kind::ensure() {
 	if ! kind export kubeconfig --name "${CLUSTER_NAME}"; then
 		kind create cluster --name "${CLUSTER_NAME}"
@@ -47,6 +52,14 @@ e2e::helm_uninstall() {
 	helm delete cloud-proxy-e2e
 }
 
+e2e::failure() {
+	shout "e2e logs"
+	kubectl logs jobs/cloud-proxy-e2e
+
+	shout "cloud-proxy logs"
+	kubectl logs deployment/cast-cloud-proxy
+}
+
 main() {
 	[[ -z "${GCP_CREDENTIALS:-}" ]] && echo "Missing GCP_CREDENTIALS" && exit 1
 
@@ -57,7 +70,24 @@ main() {
 	cloud_proxy::helm_install
 	e2e::helm_install
 
-	#e2e::helm_uninstall
+	kubectl wait jobs cloud-proxy-e2e --for condition=Complete --timeout=120s &
+	local -r complete_pid="$!"
+
+	kubectl wait jobs cloud-proxy-e2e --for condition=Failed --timeout=120s && exit 1 &
+	local -r failed_pid="$!"
+
+	if wait -n "$complete_pid" "$failed_pid"; then
+		local -r exit_code=0
+		shout "TESTS PASSED!"
+	else
+		local -r exit_code=1
+		shout "TESTS FAILED!"
+		e2e::failure
+	fi
+
+	e2e::helm_uninstall
+
+	exit $exit_code
 }
 
 main $@
