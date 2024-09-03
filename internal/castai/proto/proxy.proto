@@ -4,25 +4,41 @@ package gcpproxy;
 
 option go_package = ".;proto";
 
-// TODO: Keep-alives
+// CloudProxyAPI provides the API for proxying cloud requests for CAST AI External Provisioner.
+service CloudProxyAPI {
+  //  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+  //    description: "Provides the API for CAST AI Cloud-proxy."
+  //  };
 
-
-service GCPProxyServer {
-  rpc Proxy(stream HttpResponse) returns (stream HttpRequest);
+  // Stream motherboard with cluster.
+  rpc StreamCloudProxy(stream StreamCloudProxyRequest) returns (stream StreamCloudProxyResponse) {}
 }
 
-message HttpResponse {
-  string requestID = 1;
-  int32 status = 2;
-  map<string, string> headers = 3;
-  bytes body = 4;
+message StreamCloudProxyRequest {
+  string message_id = 1;
+  optional HTTPResponse http_response = 2;
 }
 
-message HttpRequest {
-  string requestID = 1;
-  string method = 2;
-  string url = 3;
-  map<string, string> headers = 4;
-  bytes body = 5;
+message StreamCloudProxyResponse {
+  string message_id = 1;
+  optional HTTPRequest http_request = 2;
+}
+
+message HTTPRequest {
+  string method = 1;
+  string path = 2;
+  optional bytes body = 3;
+  map<string, HeaderValue> headers = 4;
+}
+
+message HTTPResponse {
+  optional bytes body = 1;
+  optional string error = 2;
+  int32 status = 3;
+  map<string, HeaderValue> headers = 4;
+}
+
+message HeaderValue {
+  repeated string value = 1;
 }
 

@@ -7,45 +7,37 @@ import (
 	"net/http"
 	"os"
 
-	"cloud.google.com/go/compute/apiv1/computepb"
-	"github.com/castai/cloud-proxy/internal/castai/proto"
-	"google.golang.org/api/iterator"
-	"google.golang.org/grpc"
+	"cloud.google.com/go/container/apiv1/containerpb"
+	"golang.org/x/sync/errgroup"
 )
 
-func TestBasic(ctx context.Context, server Server, rt http.RoundTripper) error {
+const projectID = "engineering-test-353509"
+
+func TestParallelCalls(ctx context.Context, server Server, rt http.RoundTripper) error {
 	if err := server.StartServer(); err != nil {
 		return err
 	}
-	defer server.StopServer()
+	defer server.GracefulStopServer()
 
-	zonesClient, err := GetZonesClient(ctx, rt)
-	if err != nil {
-		return err
+	eg := &errgroup.Group{}
+	for i := 0; i < 3; i++ {
+		eg.Go(func() error {
+			contClient, err := GetContainerClient(ctx, rt)
+			if err != nil {
+				return err
+			}
+
+			_, err = contClient.ListClusters(ctx, &containerpb.ListClustersRequest{
+				Parent: fmt.Sprintf("projects/%s/locations/-", projectID),
+			})
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
 	}
-
-	it := zonesClient.List(ctx, &computepb.ListZonesRequest{
-		Project: "engineering-test-353509",
-	})
-
-	zones := make([]*computepb.Zone, 0)
-	for {
-		zone, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		zones = append(zones, zone)
-	}
-
-	if len(zones) < 1 {
-		return fmt.Errorf("no zones")
-	}
-
-	return nil
+	return eg.Wait()
 }
 
 func main() {
@@ -53,12 +45,10 @@ func main() {
 
 	logger := log.New(os.Stderr, "[CLOUD-PROXY-E2E] ", log.LstdFlags)
 
-	grpcServer := grpc.NewServer()
-	setup := NewTestSetup(grpcServer, logger)
-	proto.RegisterGCPProxyServerServer(grpcServer, setup)
+	setup := NewTestSetup(logger)
 
 	tt := map[string]func(ctx context.Context, server Server, rt http.RoundTripper) error{
-		"basic test": TestBasic,
+		"basic test": TestParallelCalls,
 	}
 
 	for name, testFunc := range tt {

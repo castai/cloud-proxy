@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"path"
 	"runtime"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/castai/cloud-proxy/internal/config"
 	"github.com/castai/cloud-proxy/internal/gcpauth"
@@ -40,7 +45,22 @@ func main() {
 		"Version":   Version,
 	}).Println("Starting cloud-proxy")
 
-	conn, err := grpc.NewClient(cfg.GRPC.Endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	dialOpts := make([]grpc.DialOption, 0)
+	dialOpts = append(dialOpts, grpc.WithConnectParams(grpc.ConnectParams{
+		Backoff: backoff.Config{
+			BaseDelay:  2 * time.Second,
+			Jitter:     0.1,
+			MaxDelay:   5 * time.Second,
+			Multiplier: 1.2,
+		},
+	}))
+	if cfg.GRPC.TLS.Enabled {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
+	} else {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	conn, err := grpc.NewClient(cfg.GRPC.Endpoint, dialOpts...)
 	if err != nil {
 		logger.Panicf("Failed to connect to server: %v", err)
 	}
@@ -52,9 +72,13 @@ func main() {
 		}
 	}(conn)
 
+	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+		"authorization", fmt.Sprintf("Token %s", cfg.GRPC.Key),
+	))
+
 	src := gcpauth.GCPCredentialsSource{}
 
 	executor := proxy.NewExecutor(src, http.DefaultClient)
 	client := proxy.NewClient(executor, logger)
-	client.Run(conn)
+	client.Run(ctx, conn)
 }

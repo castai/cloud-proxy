@@ -32,9 +32,10 @@ cloud_proxy::helm_install() {
 		--set image.repository=cloud-proxy \
 		--set image.tag=$IMAGE_TAG \
 		--set config.grpc.endpoint=cloud-proxy-e2e:50051 \
-		--set config.grpc.key=test \
+		--set config.grpc.key=dummytoken \
+		--set config.grpc.tls.enabled=false \
 		--set-file config.gcpCredentials="${GCP_CREDENTIALS}" \
-		cast-cloud-proxy ./charts/cast-cloud-proxy
+		castai-cloud-proxy ../github-helm-charts/charts/castai-cloud-proxy
 }
 
 e2e::build_image() {
@@ -57,7 +58,7 @@ e2e::failure() {
 	kubectl logs jobs/cloud-proxy-e2e
 
 	shout "cloud-proxy logs"
-	kubectl logs deployment/cast-cloud-proxy
+	kubectl logs deployment/castai-cloud-proxy
 }
 
 main() {

@@ -24,22 +24,22 @@ type Server interface {
 }
 
 type TestSetup struct {
-	result bool
+	proto.UnimplementedCloudProxyAPIServer
 
-	proto.UnimplementedGCPProxyServerServer
+	result bool
 
 	grpcServer   *grpc.Server
 	dispatcher   *e2etest.Dispatcher
 	roundTripper *e2etest.HttpOverGrpcRoundTripper
 
-	requestChan  chan *proto.HttpRequest
-	responseChan chan *proto.HttpResponse
+	requestChan  chan *proto.StreamCloudProxyResponse
+	responseChan chan *proto.StreamCloudProxyRequest
 
 	logger *log.Logger
 }
 
-func NewTestSetup(grpcSrv *grpc.Server, logger *log.Logger) *TestSetup {
-	requestChan, respChan := make(chan *proto.HttpRequest), make(chan *proto.HttpResponse)
+func NewTestSetup(logger *log.Logger) *TestSetup {
+	requestChan, respChan := make(chan *proto.StreamCloudProxyResponse), make(chan *proto.StreamCloudProxyRequest)
 	dispatcher := e2etest.NewDispatcher(requestChan, respChan, logger)
 	roundTrip := e2etest.NewHttpOverGrpcRoundTripper(dispatcher, logger)
 
@@ -47,7 +47,6 @@ func NewTestSetup(grpcSrv *grpc.Server, logger *log.Logger) *TestSetup {
 
 	return &TestSetup{
 		result:       true,
-		grpcServer:   grpcSrv,
 		dispatcher:   dispatcher,
 		roundTripper: roundTrip,
 		requestChan:  requestChan,
@@ -61,6 +60,9 @@ func (srv *TestSetup) StartServer() error {
 	if err != nil {
 		return fmt.Errorf("listening: %w", err)
 	}
+
+	srv.grpcServer = grpc.NewServer()
+	proto.RegisterCloudProxyAPIServer(srv.grpcServer, srv)
 
 	go func() {
 		if err := srv.grpcServer.Serve(list); err != nil {
@@ -79,22 +81,36 @@ func (srv *TestSetup) GracefulStopServer() {
 	srv.grpcServer.Stop()
 }
 
-func (srv *TestSetup) Proxy(stream proto.GCPProxyServer_ProxyServer) error {
+func (srv *TestSetup) StreamCloudProxy(stream proto.CloudProxyAPI_StreamCloudProxyServer) error {
 	srv.logger.Println("Received a proxy connection from client")
+
+	//md, ok := metadata.FromIncomingContext(stream.Context())
+	//if !ok {
+	//	return fmt.Errorf("missing metadata")
+	//}
+	//if token := md.Get("authorization"); token[0] != "Token dummytoken" {
+	//	fmt.Println(token)
+	//	return fmt.Errorf("wrong authentication token")
+	//}
 
 	var eg errgroup.Group
 
 	eg.Go(func() error {
 		srv.logger.Println("Starting request sender")
 
-		for req := range srv.requestChan {
-			srv.logger.Println("Sending request to cluster proxy client")
+		for {
+			select {
+			case req := <-srv.requestChan:
+				srv.logger.Println("Sending request to cluster proxy client")
 
-			if err := stream.Send(req); err != nil {
-				srv.logger.Printf("Error sending request: %v\n", err)
+				if err := stream.Send(req); err != nil {
+					srv.logger.Printf("Error sending request: %v\n", err)
+				}
+			case <-stream.Context().Done():
+				srv.logger.Printf("stream closed, stopping sending responses")
+				return nil
 			}
 		}
-		return nil
 	})
 
 	eg.Go(func() error {
@@ -111,7 +127,7 @@ func (srv *TestSetup) Proxy(stream proto.GCPProxyServer_ProxyServer) error {
 				return err
 			}
 
-			srv.logger.Printf("Got a response from client: %v, %v\n", in.RequestID, in.Status)
+			srv.logger.Printf("Got a response from client: %v, %v\n", in.MessageId, in.HttpResponse.Status)
 			srv.responseChan <- in
 		}
 	})

@@ -15,6 +15,11 @@ type Config struct {
 type GRPC struct {
 	Endpoint string
 	Key      string
+	TLS      TLSConfig
+}
+
+type TLSConfig struct {
+	Enabled bool
 }
 
 type Log struct {
@@ -30,6 +35,7 @@ func Get() Config {
 
 	_ = viper.BindEnv("grpc.endpoint", "GRPC_ENDPOINT")
 	_ = viper.BindEnv("grpc.key", "GRPC_KEY")
+	_ = viper.BindEnv("grpc.tls.enabled", "GRPC_TLS_ENABLED")
 	_ = viper.BindEnv("log.level", "LOG_LEVEL")
 
 	cfg = &Config{}
