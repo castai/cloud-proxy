@@ -1,4 +1,4 @@
-package dummy
+package e2etest
 
 import (
 	"bytes"
@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -26,26 +25,28 @@ func NewHttpOverGrpcRoundTripper(dispatcher *Dispatcher, logger *log.Logger) *Ht
 func (p *HttpOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
 	requestID := uuid.New().String()
 
-	headers := make(map[string]string)
+	headers := make(map[string]*proto.HeaderValue)
 	for h, v := range request.Header {
-		headers[h] = strings.Join(v, ",")
+		headers[h] = &proto.HeaderValue{Value: v}
 	}
 
-	protoReq := &proto.HttpRequest{
-		RequestID: requestID,
-		Method:    request.Method,
-		Url:       request.URL.String(),
-		Headers:   headers,
-		Body: func() []byte {
-			if request.Body == nil {
-				return []byte{}
-			}
-			body, err := io.ReadAll(request.Body)
-			if err != nil {
-				panic(fmt.Sprintf("Failed to read body: %v", err))
-			}
-			return body
-		}(),
+	protoReq := &proto.StreamCloudProxyResponse{
+		MessageId: requestID,
+		HttpRequest: &proto.HTTPRequest{
+			Method:  request.Method,
+			Path:    request.URL.String(),
+			Headers: headers,
+			Body: func() []byte {
+				if request.Body == nil {
+					return []byte{}
+				}
+				body, err := io.ReadAll(request.Body)
+				if err != nil {
+					panic(fmt.Sprintf("Failed to read body: %v", err))
+				}
+				return body
+			}(),
+		},
 	}
 	waiter, err := p.dispatcher.SendRequest(protoReq)
 	if err != nil {
@@ -57,17 +58,18 @@ func (p *HttpOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Respo
 
 	// Convert to response
 	resp := &http.Response{
-		Status:     http.StatusText(int(response.Status)),
-		StatusCode: int(response.Status),
+		StatusCode: int(response.HttpResponse.Status),
 		Header: func() http.Header {
 			headers := make(http.Header)
-			for key, value := range response.Headers {
-				headers[key] = strings.Split(value, ",")
+			for key, value := range response.HttpResponse.Headers {
+				for _, v := range value.Value {
+					headers.Add(key, v)
+				}
 			}
 			return headers
 		}(),
-		Body:          io.NopCloser(bytes.NewReader(response.Body)),
-		ContentLength: int64(len(response.Body)),
+		Body:          io.NopCloser(bytes.NewReader(response.HttpResponse.Body)),
+		ContentLength: int64(len(response.HttpResponse.Body)),
 		Request:       request,
 	}
 

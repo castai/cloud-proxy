@@ -19,94 +19,100 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	GCPProxyServer_Proxy_FullMethodName = "/gcpproxy.GCPProxyServer/Proxy"
+	CloudProxyAPI_StreamCloudProxy_FullMethodName = "/gcpproxy.CloudProxyAPI/StreamCloudProxy"
 )
 
-// GCPProxyServerClient is the client API for GCPProxyServer service.
+// CloudProxyAPIClient is the client API for CloudProxyAPI service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type GCPProxyServerClient interface {
-	Proxy(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[HttpResponse, HttpRequest], error)
+//
+// CloudProxyAPI provides the API for proxying cloud requests for CAST AI External Provisioner.
+type CloudProxyAPIClient interface {
+	// Stream motherboard with cluster.
+	StreamCloudProxy(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[StreamCloudProxyRequest, StreamCloudProxyResponse], error)
 }
 
-type gCPProxyServerClient struct {
+type cloudProxyAPIClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewGCPProxyServerClient(cc grpc.ClientConnInterface) GCPProxyServerClient {
-	return &gCPProxyServerClient{cc}
+func NewCloudProxyAPIClient(cc grpc.ClientConnInterface) CloudProxyAPIClient {
+	return &cloudProxyAPIClient{cc}
 }
 
-func (c *gCPProxyServerClient) Proxy(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[HttpResponse, HttpRequest], error) {
+func (c *cloudProxyAPIClient) StreamCloudProxy(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[StreamCloudProxyRequest, StreamCloudProxyResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &GCPProxyServer_ServiceDesc.Streams[0], GCPProxyServer_Proxy_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &CloudProxyAPI_ServiceDesc.Streams[0], CloudProxyAPI_StreamCloudProxy_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[HttpResponse, HttpRequest]{ClientStream: stream}
+	x := &grpc.GenericClientStream[StreamCloudProxyRequest, StreamCloudProxyResponse]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type GCPProxyServer_ProxyClient = grpc.BidiStreamingClient[HttpResponse, HttpRequest]
+type CloudProxyAPI_StreamCloudProxyClient = grpc.BidiStreamingClient[StreamCloudProxyRequest, StreamCloudProxyResponse]
 
-// GCPProxyServerServer is the server API for GCPProxyServer service.
-// All implementations must embed UnimplementedGCPProxyServerServer
+// CloudProxyAPIServer is the server API for CloudProxyAPI service.
+// All implementations must embed UnimplementedCloudProxyAPIServer
 // for forward compatibility.
-type GCPProxyServerServer interface {
-	Proxy(grpc.BidiStreamingServer[HttpResponse, HttpRequest]) error
-	mustEmbedUnimplementedGCPProxyServerServer()
+//
+// CloudProxyAPI provides the API for proxying cloud requests for CAST AI External Provisioner.
+type CloudProxyAPIServer interface {
+	// Stream motherboard with cluster.
+	StreamCloudProxy(grpc.BidiStreamingServer[StreamCloudProxyRequest, StreamCloudProxyResponse]) error
+	mustEmbedUnimplementedCloudProxyAPIServer()
 }
 
-// UnimplementedGCPProxyServerServer must be embedded to have
+// UnimplementedCloudProxyAPIServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedGCPProxyServerServer struct{}
+type UnimplementedCloudProxyAPIServer struct{}
 
-func (UnimplementedGCPProxyServerServer) Proxy(grpc.BidiStreamingServer[HttpResponse, HttpRequest]) error {
-	return status.Errorf(codes.Unimplemented, "method Proxy not implemented")
+func (UnimplementedCloudProxyAPIServer) StreamCloudProxy(grpc.BidiStreamingServer[StreamCloudProxyRequest, StreamCloudProxyResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method StreamCloudProxy not implemented")
 }
-func (UnimplementedGCPProxyServerServer) mustEmbedUnimplementedGCPProxyServerServer() {}
-func (UnimplementedGCPProxyServerServer) testEmbeddedByValue()                        {}
+func (UnimplementedCloudProxyAPIServer) mustEmbedUnimplementedCloudProxyAPIServer() {}
+func (UnimplementedCloudProxyAPIServer) testEmbeddedByValue()                       {}
 
-// UnsafeGCPProxyServerServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to GCPProxyServerServer will
+// UnsafeCloudProxyAPIServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CloudProxyAPIServer will
 // result in compilation errors.
-type UnsafeGCPProxyServerServer interface {
-	mustEmbedUnimplementedGCPProxyServerServer()
+type UnsafeCloudProxyAPIServer interface {
+	mustEmbedUnimplementedCloudProxyAPIServer()
 }
 
-func RegisterGCPProxyServerServer(s grpc.ServiceRegistrar, srv GCPProxyServerServer) {
-	// If the following call pancis, it indicates UnimplementedGCPProxyServerServer was
+func RegisterCloudProxyAPIServer(s grpc.ServiceRegistrar, srv CloudProxyAPIServer) {
+	// If the following call pancis, it indicates UnimplementedCloudProxyAPIServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&GCPProxyServer_ServiceDesc, srv)
+	s.RegisterService(&CloudProxyAPI_ServiceDesc, srv)
 }
 
-func _GCPProxyServer_Proxy_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(GCPProxyServerServer).Proxy(&grpc.GenericServerStream[HttpResponse, HttpRequest]{ServerStream: stream})
+func _CloudProxyAPI_StreamCloudProxy_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(CloudProxyAPIServer).StreamCloudProxy(&grpc.GenericServerStream[StreamCloudProxyRequest, StreamCloudProxyResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type GCPProxyServer_ProxyServer = grpc.BidiStreamingServer[HttpResponse, HttpRequest]
+type CloudProxyAPI_StreamCloudProxyServer = grpc.BidiStreamingServer[StreamCloudProxyRequest, StreamCloudProxyResponse]
 
-// GCPProxyServer_ServiceDesc is the grpc.ServiceDesc for GCPProxyServer service.
+// CloudProxyAPI_ServiceDesc is the grpc.ServiceDesc for CloudProxyAPI service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var GCPProxyServer_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "gcpproxy.GCPProxyServer",
-	HandlerType: (*GCPProxyServerServer)(nil),
+var CloudProxyAPI_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "gcpproxy.CloudProxyAPI",
+	HandlerType: (*CloudProxyAPIServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Proxy",
-			Handler:       _GCPProxyServer_Proxy_Handler,
+			StreamName:    "StreamCloudProxy",
+			Handler:       _CloudProxyAPI_StreamCloudProxy_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cloud-proxy-deployment
+  name: castai-cloud-proxy-deployment
   labels:
-    app: cloud-proxy
+    app: castai-cloud-proxy
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cloud-proxy
+      app: castai-cloud-proxy
   template:
     metadata:
       labels:
-        app: cloud-proxy
+        app: castai-cloud-proxy
     spec:
       serviceAccountName: castai-cloud-proxy
       containers:

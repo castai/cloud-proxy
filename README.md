@@ -50,3 +50,22 @@ gcloud projects add-iam-policy-binding projects/<PROJECT_ID> \
     --condition=None
 ```
 
+## Dev cloud-proxy deployment
+
+You can use this [Terraform module](./hack/terraform/) to create a GKE cluster, onboard to CAST AI and install the castai-cloud-proxy Helm chart.
+
+You might need to tweak the values in the [helm_release](./hack/terraform/cloud-proxy.tf) resource for the castai-cloud-proxy, to use the proper image and Helm chart. For now the Helm chart is not published, to you have to clone the [helm-charts repo](https://github.com/castai/helm-charts) and provide a local path in the `helm_release`.
+
+To deploy the Terraform module execute:
+
+```bash
+export TF_VAR_castai_api_url=https://api-...localenv.cast.ai
+export TF_VAR_castai_api_token=<your-token>
+export TF_VAR_castai_grpc_url=grpc-...localenv.cast.ai:443
+export TF_VAR_cluster_name=<cluster_name>
+
+terraform -chdir=hack/terraform apply
+```
+
+The castai-cloud-proxy will try to connect the GRPC server provided in the variables.
+

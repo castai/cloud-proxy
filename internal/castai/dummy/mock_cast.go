@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/castai/cloud-proxy/internal/castai/proto"
+	"github.com/castai/cloud-proxy/internal/e2etest"
 )
 
 // MockCast simulates what cast would do but runs it in the same process:
@@ -19,13 +20,12 @@ import (
 //   - "dispatcher" that uses proxy to send requests
 //   - "client" that does GCP cloud calls
 type MockCast struct {
-	proxyServer *MockCastServer
 }
 
 func (mc *MockCast) Run() error {
 	logger := log.New(os.Stderr, "[CAST-MOCK] ", log.LstdFlags)
 
-	requestChan, respChan := make(chan *proto.HttpRequest), make(chan *proto.HttpResponse)
+	requestChan, respChan := make(chan *proto.StreamCloudProxyResponse), make(chan *proto.StreamCloudProxyRequest)
 
 	// Start the mock server
 	listener, err := net.Listen("tcp", ":50051")
@@ -34,9 +34,9 @@ func (mc *MockCast) Run() error {
 	}
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterGCPProxyServerServer(grpcServer, NewMockCastServer(requestChan, respChan, logger))
+	proto.RegisterCloudProxyAPIServer(grpcServer, NewMockCastServer(requestChan, respChan, logger))
 
-	dispatcher := NewDispatcher(requestChan, respChan, logger)
+	dispatcher := e2etest.NewDispatcher(requestChan, respChan, logger)
 
 	epMock, err := newMockEP(dispatcher, logger)
 	if err != nil {
@@ -68,15 +68,15 @@ func (mc *MockCast) Run() error {
 }
 
 type MockCastServer struct {
-	proto.UnimplementedGCPProxyServerServer
+	proto.UnimplementedCloudProxyAPIServer
 
-	requestChan  <-chan *proto.HttpRequest
-	responseChan chan<- *proto.HttpResponse
+	requestChan  <-chan *proto.StreamCloudProxyResponse
+	responseChan chan<- *proto.StreamCloudProxyRequest
 
 	logger *log.Logger
 }
 
-func NewMockCastServer(requestChan <-chan *proto.HttpRequest, responseChan chan<- *proto.HttpResponse, logger *log.Logger) *MockCastServer {
+func NewMockCastServer(requestChan <-chan *proto.StreamCloudProxyResponse, responseChan chan<- *proto.StreamCloudProxyRequest, logger *log.Logger) *MockCastServer {
 	return &MockCastServer{
 		requestChan:  requestChan,
 		responseChan: responseChan,
@@ -84,7 +84,7 @@ func NewMockCastServer(requestChan <-chan *proto.HttpRequest, responseChan chan<
 	}
 }
 
-func (msrv *MockCastServer) Proxy(stream proto.GCPProxyServer_ProxyServer) error {
+func (msrv *MockCastServer) Proxy(stream proto.CloudProxyAPI_StreamCloudProxyServer) error {
 	msrv.logger.Println("Received a proxy connection from client")
 
 	var eg errgroup.Group
@@ -117,7 +117,7 @@ func (msrv *MockCastServer) Proxy(stream proto.GCPProxyServer_ProxyServer) error
 				return err
 			}
 
-			msrv.logger.Printf("Got a response from client: %v, %v\n", in.RequestID, in.Status)
+			msrv.logger.Printf("Got a response from client: %v, %v\n", in.MessageId, in.HttpResponse.Status)
 			msrv.responseChan <- in
 		}
 	})

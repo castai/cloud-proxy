@@ -1,76 +1,84 @@
 package main
 
 import (
-	"flag"
-	"log"
+	"context"
+	"fmt"
 	"net/http"
-	"os"
+	"path"
+	"runtime"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
-	"github.com/castai/cloud-proxy/internal/castai/dummy"
+	"github.com/castai/cloud-proxy/internal/config"
 	"github.com/castai/cloud-proxy/internal/gcpauth"
-	"github.com/castai/cloud-proxy/internal/localtest"
 	"github.com/castai/cloud-proxy/internal/proxy"
-)
-
-const (
-	// TODO: Change accordingly for local testing
-
-	projectID   = "engineering-test-353509"
-	location    = "europe-north1-a"
-	testCluster = "lachezar-2708"
+	"github.com/sirupsen/logrus"
 )
 
 var (
-	runSanityTests  = flag.Bool("sanity-checks", false, "run sanity checks that validate auth loading and basic executor function")
-	runMockCastTest = flag.Bool("mockcast", true, "run a test using a mock Cast.AI server")
+	GitCommit = "undefined"
+	GitRef    = "no-ref"
+	Version   = "local"
 )
 
 func main() {
-	flag.Parse()
+	cfg := config.Get()
 
-	if runSanityTests != nil && *runSanityTests {
-		log.Println("run sanity tests is true, starting")
-		go func() {
-			localtest.RunBasicTests(projectID, location, testCluster)
-			localtest.RunProxyTest(projectID, location, testCluster)
-		}()
+	logger := logrus.New()
+	logger.SetLevel(logrus.Level(cfg.Log.Level))
+	logger.SetReportCaller(true)
+	logger.Formatter = &logrus.TextFormatter{
+		CallerPrettyfier: func(f *runtime.Frame) (function string, file string) {
+			filename := path.Base(f.File)
+			return fmt.Sprintf("%s()", f.Function), fmt.Sprintf("%s:%d", filename, f.Line)
+		},
 	}
 
-	if runMockCastTest != nil && *runMockCastTest {
-		log.Println("run mockcast tests is true, starting")
-		go func() {
-			log.Println("Starting mock cast instance")
-			mockCast := &dummy.MockCast{}
-			if err := mockCast.Run(); err != nil {
-				log.Panicln("Error running mock Cast:", err)
-			}
-		}()
+	logger.WithFields(logrus.Fields{
+		"GitCommit": GitCommit,
+		"GitRef":    GitRef,
+		"Version":   Version,
+	}).Println("Starting cloud-proxy")
 
-		go func() {
-			loggerClientProxy := log.New(os.Stderr, "[CLUSTER PROXY] ", log.LstdFlags)
-			loggerClientProxy.Println("Starting proxy client")
-			conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
-			if err != nil {
-				loggerClientProxy.Panicf("Failed to connect to server: %v", err)
-			}
-			defer func(conn *grpc.ClientConn) {
-				err := conn.Close()
-				if err != nil {
-					loggerClientProxy.Panicf("Failed to close gRPC connection: %v", err)
-				}
-			}(conn)
-
-			src := gcpauth.GCPCredentialsSource{}
-			executor := proxy.NewExecutor(src, http.DefaultClient)
-			client := proxy.NewClient(executor, loggerClientProxy)
-			client.Run(conn)
-		}()
+	dialOpts := make([]grpc.DialOption, 0)
+	dialOpts = append(dialOpts, grpc.WithConnectParams(grpc.ConnectParams{
+		Backoff: backoff.Config{
+			BaseDelay:  2 * time.Second,
+			Jitter:     0.1,
+			MaxDelay:   5 * time.Second,
+			Multiplier: 1.2,
+		},
+	}))
+	if cfg.GRPC.TLS.Enabled {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
+	} else {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	log.Println("Sleeping for 1h, feel free to kill me")
-	time.Sleep(1 * time.Hour)
+	conn, err := grpc.NewClient(cfg.GRPC.Endpoint, dialOpts...)
+	if err != nil {
+		logger.Panicf("Failed to connect to server: %v", err)
+	}
+
+	defer func(conn *grpc.ClientConn) {
+		err := conn.Close()
+		if err != nil {
+			logger.Panicf("Failed to close gRPC connection: %v", err)
+		}
+	}(conn)
+
+	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+		"authorization", fmt.Sprintf("Token %s", cfg.GRPC.Key),
+	))
+
+	src := gcpauth.GCPCredentialsSource{}
+
+	executor := proxy.NewExecutor(src, http.DefaultClient)
+	client := proxy.NewClient(executor, logger)
+	client.Run(ctx, conn)
 }
