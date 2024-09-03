@@ -7,10 +7,9 @@ resource "google_project_iam_binding" "cloud_proxy_workload_identity" {
 }
 
 resource "helm_release" "castai_cloud_proxy" {
-  name = "castai-cloud-proxy"
-  //repository       = "https://castai.github.io/helm-charts"
-  //chart            = "castai-cloud-proxy"
-  chart            = "../../../github-helm-charts/charts/castai-cloud-proxy"
+  name             = "castai-cloud-proxy"
+  repository       = "https://castai.github.io/helm-charts"
+  chart            = "castai-cloud-proxy"
   namespace        = "castai-agent"
   create_namespace = true
   cleanup_on_fail  = true
