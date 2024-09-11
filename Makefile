@@ -23,6 +23,6 @@ deploy: build push
 .PHONY: deploy
 
 generate-grpc:
-	protoc internal/castai/proto/proxy.proto --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:.
+	protoc proto/v1alpha/proxy.proto --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:.
 .PHONY: generate-grpc
 

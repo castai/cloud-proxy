@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.28.0
-// source: internal/castai/proto/proxy.proto
+// source: proto/v1alpha/proxy.proto
 
 package cloudproxyv1alpha
 
@@ -19,8 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CloudProxyAPI_StreamCloudProxy_FullMethodName = "/castai.cloud.proxy.v1alpha.CloudProxyAPI/StreamCloudProxy"
-	CloudProxyAPI_SendToProxy_FullMethodName      = "/castai.cloud.proxy.v1alpha.CloudProxyAPI/SendToProxy"
+	CloudProxyAPI_StreamCloudProxy_FullMethodName = "/cloud.proxy.v1alpha.CloudProxyAPI/StreamCloudProxy"
+	CloudProxyAPI_SendToProxy_FullMethodName      = "/cloud.proxy.v1alpha.CloudProxyAPI/SendToProxy"
 )
 
 // CloudProxyAPIClient is the client API for CloudProxyAPI service.
@@ -142,7 +142,7 @@ func _CloudProxyAPI_SendToProxy_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var CloudProxyAPI_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "castai.cloud.proxy.v1alpha.CloudProxyAPI",
+	ServiceName: "cloud.proxy.v1alpha.CloudProxyAPI",
 	HandlerType: (*CloudProxyAPIServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -158,5 +158,5 @@ var CloudProxyAPI_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "internal/castai/proto/proxy.proto",
+	Metadata: "proto/v1alpha/proxy.proto",
 }

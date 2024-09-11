@@ -3,13 +3,12 @@ package e2etest
 import (
 	"bytes"
 	"fmt"
+	proto "github.com/castai/cloud-proxy/proto/v1alpha"
 	"io"
 	"log"
 	"net/http"
 
 	"github.com/google/uuid"
-
-	"github.com/castai/cloud-proxy/internal/castai/proto"
 )
 
 type HttpOverGrpcRoundTripper struct {
@@ -58,18 +57,18 @@ func (p *HttpOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Respo
 
 	// Convert to response
 	resp := &http.Response{
-		StatusCode: int(response.HttpResponse.Status),
+		StatusCode: int(response.GetResponse().GetHttpResponse().GetStatus()),
 		Header: func() http.Header {
 			headers := make(http.Header)
-			for key, value := range response.HttpResponse.Headers {
+			for key, value := range response.GetResponse().GetHttpResponse().GetHeaders() {
 				for _, v := range value.Value {
 					headers.Add(key, v)
 				}
 			}
 			return headers
 		}(),
-		Body:          io.NopCloser(bytes.NewReader(response.HttpResponse.Body)),
-		ContentLength: int64(len(response.HttpResponse.Body)),
+		Body:          io.NopCloser(bytes.NewReader(response.GetResponse().GetHttpResponse().GetBody())),
+		ContentLength: int64(len(response.GetResponse().GetHttpResponse().GetBody())),
 		Request:       request,
 	}
 

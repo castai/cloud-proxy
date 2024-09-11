@@ -4,7 +4,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/castai/cloud-proxy/internal/castai/proto"
+	proto "github.com/castai/cloud-proxy/proto/v1alpha"
 )
 
 type Dispatcher struct {
@@ -32,7 +32,7 @@ func (d *Dispatcher) Run() {
 		d.logger.Println("starting response returning loop")
 		for {
 			for resp := range d.proxyResponseChan {
-				waiter := d.findWaiterForResponse(resp.MessageId)
+				waiter := d.findWaiterForResponse(resp.GetResponse().GetMessageId())
 				waiter <- resp
 				d.logger.Println("Sent a response back to caller")
 			}
