@@ -3,6 +3,7 @@ package main
 import (
 	"cloud-proxy/internal/cloud/gcp"
 	"cloud-proxy/internal/cloud/gcp/gcpauth"
+	proto "cloud-proxy/proto/v1alpha"
 	"context"
 	"fmt"
 	"net/http"
@@ -78,7 +79,10 @@ func main() {
 		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.ApiKey),
 	))
 
-	cloudClient := gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient)
-	client := proxy.New(cloudClient, logger)
-	client.Run(ctx, conn)
+	//TODO add clusterID to config
+	client := proxy.New(gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger, "cfg.ClusterID")
+	err = client.Run(ctx, proto.NewCloudProxyAPIClient(conn))
+	if err != nil {
+		logger.Panicf("Failed to run client: %v", err)
+	}
 }

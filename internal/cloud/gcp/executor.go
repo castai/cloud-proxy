@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"cloud-proxy/internal/cloud/gcp/gcpauth"
 	proto "cloud-proxy/proto/v1alpha"
+	"context"
 	"fmt"
 	"github.com/samber/lo"
 	"io"
@@ -15,12 +16,12 @@ type Credentials interface {
 	GetToken() (string, error)
 }
 type Client struct {
-	credentialsSrc Credentials
-	httpClient     *http.Client
+	credentials Credentials
+	httpClient  *http.Client
 }
 
 func New(credentials *gcpauth.CredentialsSource, client *http.Client) *Client {
-	return &Client{credentialsSrc: credentials, httpClient: client}
+	return &Client{credentials: credentials, httpClient: client}
 }
 
 func (c *Client) DoRequest(request *proto.StreamCloudProxyResponse) (*proto.StreamCloudProxyRequest, error) {
@@ -61,11 +62,7 @@ func (c *Client) toGCPRequest(req *proto.StreamCloudProxyResponse) (*http.Reques
 		return nil, fmt.Errorf("nil request or request body %w", errBadRequest)
 	}
 
-	if c.credentialsSrc == nil {
-		return nil, fmt.Errorf("nil credentials source %w", errBadRequest)
-	}
-
-	reqHTTP, err := http.NewRequest(req.HttpRequest.Method, req.GetHttpRequest().Path, bytes.NewReader(req.GetHttpRequest().Body))
+	reqHTTP, err := http.NewRequestWithContext(context.Background(), req.HttpRequest.Method, req.GetHttpRequest().Path, bytes.NewReader(req.GetHttpRequest().Body))
 	if err != nil {
 		return nil, fmt.Errorf("http.NewRequest: msgID=%v error: %v", req.GetMessageId(), err)
 	}
@@ -75,7 +72,8 @@ func (c *Client) toGCPRequest(req *proto.StreamCloudProxyResponse) (*http.Reques
 			reqHTTP.Header.Add(header, value)
 		}
 	}
-	token, err := c.credentialsSrc.GetToken()
+
+	token, err := c.credentials.GetToken()
 	if err != nil {
 		return nil, fmt.Errorf("credentialsSrc.GetToken: msgID=%v error: %v", req.GetMessageId(), err)
 	}

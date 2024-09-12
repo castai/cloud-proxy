@@ -2,12 +2,16 @@ package gcp
 
 import (
 	"bytes"
-	"cloud-proxy/internal/cloud/gcp/gcpauth"
+	mock_gcp "cloud-proxy/internal/cloud/gcp/mock"
 	proto "cloud-proxy/proto/v1alpha"
+	"context"
+	"fmt"
+	"github.com/golang/mock/gomock"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
+	"net/url"
 	"testing"
 )
 
@@ -21,7 +25,7 @@ func (m mockReadCloserErr) Close() error { return nil }
 func TestClient_toResponse(t *testing.T) {
 	t.Parallel()
 	type fields struct {
-		credentialsSrc *gcpauth.CredentialsSource
+		//tuneMockCredentials func(m *mock_gcp.MockCredentials)
 		//httpClient     *http.Client
 	}
 	type args struct {
@@ -93,10 +97,7 @@ func TestClient_toResponse(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			c := &Client{
-				credentialsSrc: tt.fields.credentialsSrc,
-				//httpClient:     tt.fields.httpClient,
-			}
+			c := New(nil, nil)
 			got := c.toResponse(tt.args.msgID, tt.args.resp)
 			//diff := cmp.Diff(got, tt.want, protocmp.Transform())
 			//require.Empty(t, diff)
@@ -108,7 +109,7 @@ func TestClient_toResponse(t *testing.T) {
 func TestClient_toGCPRequest(t *testing.T) {
 	t.Parallel()
 	type fields struct {
-		credentialsSrc *gcpauth.CredentialsSource
+		tuneMockCredentials func(m *mock_gcp.MockCredentials)
 		//httpClient     *http.Client
 	}
 	type args struct {
@@ -131,15 +132,54 @@ func TestClient_toGCPRequest(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "creds nil",
-			args:    args{req: &proto.StreamCloudProxyResponse{HttpRequest: &proto.HTTPRequest{}}},
+			name: "error creating http request",
+			args: args{req: &proto.StreamCloudProxyResponse{
+				HttpRequest: &proto.HTTPRequest{
+					Path: "\n\t\f",
+				},
+			}},
 			wantErr: true,
 		},
 		{
 			name: "error getting creds",
 			args: args{req: &proto.StreamCloudProxyResponse{HttpRequest: &proto.HTTPRequest{}}},
 			fields: fields{
-				credentialsSrc: &gcpauth.CredentialsSource{},
+				tuneMockCredentials: func(m *mock_gcp.MockCredentials) {
+					m.EXPECT().GetToken().Return("", fmt.Errorf("test error"))
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "success",
+			args: args{
+				req: &proto.StreamCloudProxyResponse{
+					HttpRequest: &proto.HTTPRequest{
+						Method: "GET",
+						Headers: map[string]*proto.HeaderValue{
+							"header": {Value: []string{"value"}},
+						},
+						Body: []byte("body"),
+					},
+				},
+			},
+			fields: fields{
+				tuneMockCredentials: func(m *mock_gcp.MockCredentials) {
+					m.EXPECT().GetToken().Return("test", nil)
+				},
+			},
+			want: &http.Request{
+				Proto:         "HTTP/1.1",
+				ContentLength: int64(len("body")),
+				ProtoMajor:    1,
+				ProtoMinor:    1,
+				Method:        "GET",
+				Header: http.Header{
+					"Authorization": {"Bearer test"},
+					"Header":        {"value"},
+				},
+				URL:  &url.URL{},
+				Body: io.NopCloser(bytes.NewReader([]byte("body"))),
 			},
 		},
 	}
@@ -147,12 +187,21 @@ func TestClient_toGCPRequest(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			c := &Client{
-				credentialsSrc: tt.fields.credentialsSrc,
-				//httpClient:     tt.fields.httpClient,
+			c := New(nil, nil)
+			if tt.fields.tuneMockCredentials != nil {
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+				m := mock_gcp.NewMockCredentials(ctrl)
+				tt.fields.tuneMockCredentials(m)
+				c.credentials = m
 			}
 			got, err := c.toGCPRequest(tt.args.req)
 			require.Equal(t, tt.wantErr, err != nil, err)
+			if err != nil {
+				return
+			}
+			got.GetBody = nil
+			tt.want = tt.want.WithContext(context.Background())
 			require.Equal(t, tt.want, got)
 		})
 	}

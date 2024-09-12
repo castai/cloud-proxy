@@ -2,74 +2,102 @@ package proxy
 
 import (
 	"cloud-proxy/internal/cloud/gcp"
+	cloudproxyv1alpha "cloud-proxy/proto/v1alpha"
 	"context"
 	"errors"
-	"io"
-	"time"
-
-	"google.golang.org/grpc"
-
-	proto "cloud-proxy/proto/v1alpha"
+	"fmt"
 	"github.com/sirupsen/logrus"
+	"io"
 )
 
+type StreamCloudProxyClient = cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient
+
 type Client struct {
-	executor *gcp.Client
-
-	logger *logrus.Logger
+	executor  *gcp.Client
+	log       *logrus.Logger
+	clusterID string
 }
 
-func New(executor *gcp.Client, logger *logrus.Logger) *Client {
-	return &Client{executor: executor, logger: logger}
+func New(executor *gcp.Client, logger *logrus.Logger, clusterID string) *Client {
+	return &Client{executor: executor, log: logger, clusterID: clusterID}
 }
 
-func (client *Client) Run(ctx context.Context, grpcConn *grpc.ClientConn) {
-	grpcClient := proto.NewCloudProxyAPIClient(grpcConn)
+func (c *Client) Run(ctx context.Context, grpcClient cloudproxyv1alpha.CloudProxyAPIClient) error {
+	stream, err := c.initializeStream(ctx, grpcClient)
+	if err != nil {
+		return fmt.Errorf("c.Connect: %w", err)
+	}
 
-	// Outer loop is a dumb re-connect version
-	for {
-		time.Sleep(1 * time.Second)
-		client.logger.Println("Connecting to castai")
-
-		stream, err := grpcClient.StreamCloudProxy(ctx)
+	defer func() {
+		err := stream.CloseSend()
 		if err != nil {
-			client.logger.Printf("error connecting to castai: %v\n", err)
-			continue
+			c.log.Println("error closing stream", err)
 		}
+	}()
 
-		// Inner loop handles "per-message" execution
+	for {
+		if ctx.Err() != nil {
+			return nil
+		}
 		for {
 			in, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
-				client.logger.Println("Reconnecting")
+				c.log.Println("Reconnecting")
 				break
 			}
 			if err != nil {
-				client.logger.Printf("error receiving from castai: %v; closing stream\n", err)
+				c.log.Printf("error receiving from castai: %v; closing stream\n", err)
 				err = stream.CloseSend()
 				if err != nil {
-					client.logger.Println("error closing stream", err)
+					c.log.Println("error closing stream", err)
 				}
 				// Reconnect by stopping inner loop
 				break
 			}
 
 			go func() {
-				client.logger.Println("Received message from server for proxying:", in.MessageId)
-				resp, err := client.executor.DoRequest(in)
+				c.log.Println("Received message from server for proxying:", in.MessageId)
+				resp, err := c.executor.DoRequest(in)
 				if err != nil {
-					client.logger.Println("error executing request", err)
+					c.log.Println("error executing request", err)
 					// TODO: Sent error as metadata to cast
 					return
 				}
-				client.logger.Println("got response for request:", resp.GetResponse().GetMessageId())
+				c.log.Println("got response for request:", resp.GetResponse().GetMessageId())
 
 				err = stream.Send(resp)
 				if err != nil {
-					client.logger.Println("error sending response to CAST", err)
+					c.log.Println("error sending response to CAST", err)
 					return
 				}
 			}()
 		}
 	}
+}
+
+func (c *Client) initializeStream(ctx context.Context, proxyCastAIClient cloudproxyv1alpha.CloudProxyAPIClient) (StreamCloudProxyClient, error) {
+	c.log.Println("Connecting to castai")
+
+	stream, err := proxyCastAIClient.StreamCloudProxy(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("proxyCastAIClient.StreamCloudProxy: %w", err)
+	}
+
+	err = stream.Send(&cloudproxyv1alpha.StreamCloudProxyRequest{
+		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_InitialRequest{
+			InitialRequest: &cloudproxyv1alpha.InitialCloudProxyRequest{
+				ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
+					ClusterId: c.clusterID,
+				},
+			},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("stream.Send: initial request %w", err)
+	}
+	return stream, nil
+}
+
+func (c *Client) run() {
+
 }
