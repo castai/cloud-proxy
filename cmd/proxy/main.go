@@ -3,22 +3,22 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/castai/cloud-proxy/internal/cloud/gcp"
-	"github.com/castai/cloud-proxy/internal/gcpauth"
 	"net/http"
 	"path"
 	"runtime"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/castai/cloud-proxy/internal/cloud/gcp"
 	"github.com/castai/cloud-proxy/internal/config"
+	"github.com/castai/cloud-proxy/internal/gcpauth"
 	"github.com/castai/cloud-proxy/internal/proxy"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -29,6 +29,7 @@ var (
 
 func main() {
 	cfg := config.Get()
+	//logrus.Println(cfg)
 
 	logger := logrus.New()
 	logger.SetLevel(logrus.Level(cfg.Log.Level))
@@ -55,13 +56,14 @@ func main() {
 			Multiplier: 1.2,
 		},
 	}))
-	if cfg.GRPC.TLS.Enabled {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
-	} else {
+	if cfg.CastAI.DisableGRPCTLS {
+		// ONLY For testing purposes
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
 	}
 
-	conn, err := grpc.NewClient(cfg.GRPC.Endpoint, dialOpts...)
+	conn, err := grpc.NewClient(cfg.CastAI.GrpcURL, dialOpts...)
 	if err != nil {
 		logger.Panicf("Failed to connect to server: %v", err)
 	}
@@ -74,7 +76,7 @@ func main() {
 	}(conn)
 
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-		"authorization", fmt.Sprintf("Token %s", cfg.GRPC.Key),
+		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.ApiKey),
 	))
 
 	src := gcpauth.GCPCredentialsSource{}
