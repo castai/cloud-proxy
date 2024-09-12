@@ -1,12 +1,9 @@
-package gcp
+package proxy
 
 import (
 	"bytes"
-	mock_gcp "cloud-proxy/internal/cloud/gcp/mock"
 	proto "cloud-proxy/proto/v1alpha"
 	"context"
-	"fmt"
-	"github.com/golang/mock/gomock"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -36,19 +33,12 @@ func TestClient_toResponse(t *testing.T) {
 		name   string
 		fields fields
 		args   args
-		want   *proto.StreamCloudProxyRequest
+		want   *proto.HTTPResponse
 	}{
 		{
 			name: "nil response",
-			want: &proto.StreamCloudProxyRequest{
-				Request: &proto.StreamCloudProxyRequest_Response{
-					Response: &proto.ClusterResponse{
-						MessageId: "",
-						HttpResponse: &proto.HTTPResponse{
-							Error: lo.ToPtr("nil response"),
-						},
-					},
-				},
+			want: &proto.HTTPResponse{
+				Error: lo.ToPtr("nil response"),
 			},
 		},
 		{
@@ -58,15 +48,8 @@ func TestClient_toResponse(t *testing.T) {
 					Body: &mockReadCloserErr{},
 				},
 			},
-			want: &proto.StreamCloudProxyRequest{
-				Request: &proto.StreamCloudProxyRequest_Response{
-					Response: &proto.ClusterResponse{
-						MessageId: "",
-						HttpResponse: &proto.HTTPResponse{
-							Error: lo.ToPtr("io.ReadAll: body for msgID= error: unexpected EOF"),
-						},
-					},
-				},
+			want: &proto.HTTPResponse{
+				Error: lo.ToPtr("io.ReadAll: body for error: unexpected EOF"),
 			},
 		},
 		{
@@ -79,17 +62,10 @@ func TestClient_toResponse(t *testing.T) {
 					Body:       io.NopCloser(bytes.NewReader([]byte("body"))),
 				},
 			},
-			want: &proto.StreamCloudProxyRequest{
-				Request: &proto.StreamCloudProxyRequest_Response{
-					Response: &proto.ClusterResponse{
-						MessageId: "msgID",
-						HttpResponse: &proto.HTTPResponse{
-							Body:    []byte("body"),
-							Status:  200,
-							Headers: map[string]*proto.HeaderValue{"header": {Value: []string{"value"}}},
-						},
-					},
-				},
+			want: &proto.HTTPResponse{
+				Body:    []byte("body"),
+				Status:  200,
+				Headers: map[string]*proto.HeaderValue{"header": {Value: []string{"value"}}},
 			},
 		},
 	}
@@ -97,8 +73,8 @@ func TestClient_toResponse(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			c := New(nil, nil)
-			got := c.toResponse(tt.args.msgID, tt.args.resp)
+			c := New(nil, nil, "clusterID", "version")
+			got := c.toResponse(tt.args.resp)
 			//diff := cmp.Diff(got, tt.want, protocmp.Transform())
 			//require.Empty(t, diff)
 			require.Equal(t, tt.want, got)
@@ -106,18 +82,13 @@ func TestClient_toResponse(t *testing.T) {
 	}
 }
 
-func TestClient_toGCPRequest(t *testing.T) {
+func TestClient_toHTTPRequest(t *testing.T) {
 	t.Parallel()
-	type fields struct {
-		tuneMockCredentials func(m *mock_gcp.MockCredentials)
-		//httpClient     *http.Client
-	}
 	type args struct {
 		req *proto.HTTPRequest
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		want    *http.Request
 		wantErr bool
@@ -136,18 +107,6 @@ func TestClient_toGCPRequest(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "error getting creds",
-			args: args{
-				req: &proto.HTTPRequest{},
-			},
-			fields: fields{
-				tuneMockCredentials: func(m *mock_gcp.MockCredentials) {
-					m.EXPECT().GetToken().Return("", fmt.Errorf("test error"))
-				},
-			},
-			wantErr: true,
-		},
-		{
 			name: "success",
 			args: args{
 				req: &proto.HTTPRequest{
@@ -158,11 +117,6 @@ func TestClient_toGCPRequest(t *testing.T) {
 					Body: []byte("body"),
 				},
 			},
-			fields: fields{
-				tuneMockCredentials: func(m *mock_gcp.MockCredentials) {
-					m.EXPECT().GetToken().Return("test", nil)
-				},
-			},
 			want: &http.Request{
 				Proto:         "HTTP/1.1",
 				ContentLength: int64(len("body")),
@@ -170,8 +124,7 @@ func TestClient_toGCPRequest(t *testing.T) {
 				ProtoMinor:    1,
 				Method:        "GET",
 				Header: http.Header{
-					"Authorization": {"Bearer test"},
-					"Header":        {"value"},
+					"Header": {"value"},
 				},
 				URL:  &url.URL{},
 				Body: io.NopCloser(bytes.NewReader([]byte("body"))),
@@ -182,15 +135,8 @@ func TestClient_toGCPRequest(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			c := New(nil, nil)
-			if tt.fields.tuneMockCredentials != nil {
-				ctrl := gomock.NewController(t)
-				defer ctrl.Finish()
-				m := mock_gcp.NewMockCredentials(ctrl)
-				tt.fields.tuneMockCredentials(m)
-				c.credentials = m
-			}
-			got, err := c.toGCPRequest("msgID", tt.args.req)
+			c := New(nil, nil, "clusterID", "version")
+			got, err := c.toHTTPRequest(tt.args.req)
 			require.Equal(t, tt.wantErr, err != nil, err)
 			if err != nil {
 				return

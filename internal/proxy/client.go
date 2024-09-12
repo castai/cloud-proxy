@@ -1,11 +1,17 @@
+//go:generate mockgen -destination ./mock/cloud.go -package=mock_cloud cloud-proxy/internal/proxy CloudClient
+//go:generate mockgen -destination ./mock/stream.go -package=mock_cloud cloud-proxy/internal/proxy StreamCloudProxyClient
 package proxy
 
 import (
-	"cloud-proxy/internal/cloud/gcp"
+	"bytes"
 	cloudproxyv1alpha "cloud-proxy/proto/v1alpha"
+	proto "cloud-proxy/proto/v1alpha"
 	"context"
 	"fmt"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"io"
+	"net/http"
 	"sync/atomic"
 	"time"
 )
@@ -17,11 +23,14 @@ const (
 )
 
 type StreamCloudProxyClient = cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient
+type CloudClient interface {
+	DoHTTPRequest(request *http.Request) (*http.Response, error)
+}
 
 type Client struct {
-	executor  *gcp.Client
-	log       *logrus.Logger
-	clusterID string
+	cloudClient CloudClient
+	log         *logrus.Logger
+	clusterID   string
 
 	errCount       atomic.Int64
 	processedCount atomic.Int64
@@ -32,12 +41,12 @@ type Client struct {
 	version          string
 }
 
-func New(executor *gcp.Client, logger *logrus.Logger, clusterID, version string) *Client {
+func New(executor CloudClient, logger *logrus.Logger, clusterID, version string) *Client {
 	c := &Client{
-		executor:  executor,
-		log:       logger,
-		clusterID: clusterID,
-		version:   version,
+		cloudClient: executor,
+		log:         logger,
+		clusterID:   clusterID,
+		version:     version,
 	}
 	c.keepAlive.Store(int64(KeepAliveDefault))
 	c.keepAliveTimeout.Store(int64(KeepAliveTimeoutDefault))
@@ -118,6 +127,26 @@ func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, s
 		c.lastSeen.Store(time.Now().UnixNano())
 	}
 
+	c.processConfigurationRequest(in)
+	resp := c.processHttpRequest(in.GetHttpRequest())
+	err := stream.Send(&cloudproxyv1alpha.StreamCloudProxyRequest{
+		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_Response{
+			Response: &cloudproxyv1alpha.ClusterResponse{
+				ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
+					ClusterId: c.clusterID,
+				},
+				MessageId:    in.GetMessageId(),
+				HttpResponse: resp,
+			},
+		},
+	})
+	if err != nil {
+		c.log.Errorf("error sending response for msg_id=%v %v", in.GetMessageId(), err)
+	}
+	return
+}
+
+func (c *Client) processConfigurationRequest(in *cloudproxyv1alpha.StreamCloudProxyResponse) {
 	if in.ConfigurationRequest != nil {
 		if in.ConfigurationRequest.GetKeepAlive() != 0 {
 			c.keepAlive.Store(int64(in.ConfigurationRequest.GetKeepAlive()))
@@ -126,17 +155,30 @@ func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, s
 			c.keepAliveTimeout.Store(int64(in.ConfigurationRequest.GetKeepAliveTimeout()))
 		}
 	}
+}
 
-	if in.GetHttpRequest() != nil {
-		resp := c.executor.DoRequest(in)
-		err := stream.Send(resp)
-		if err != nil {
-			c.log.Errorf("error sending response for msg_id=%v %v", in.GetMessageId(), err)
-			c.errCount.Add(1)
-		} else {
-			c.processedCount.Add(1)
+func (c *Client) processHttpRequest(req *cloudproxyv1alpha.HTTPRequest) *cloudproxyv1alpha.HTTPResponse {
+	if req == nil {
+		return &cloudproxyv1alpha.HTTPResponse{
+			Error: lo.ToPtr("nil http request"),
 		}
 	}
+	httpReq, err := c.toHTTPRequest(req)
+	if err != nil {
+		return &cloudproxyv1alpha.HTTPResponse{
+			Error: lo.ToPtr(fmt.Sprintf("toHTTPRequest: %v", err)),
+		}
+	}
+	resp, err := c.cloudClient.DoHTTPRequest(httpReq)
+	if err != nil {
+		c.errCount.Add(1)
+		return &cloudproxyv1alpha.HTTPResponse{
+			Error: lo.ToPtr(fmt.Sprintf("c.cloudClient.DoHTTPRequest: %v", err)),
+		}
+	}
+	c.processedCount.Add(1)
+
+	return c.toResponse(resp)
 }
 
 func (c *Client) isAlive() bool {
@@ -176,5 +218,58 @@ func (c *Client) sendKeepAlive(ctx context.Context, stream StreamCloudProxyClien
 			}
 			ticker.Reset(time.Duration(c.keepAlive.Load()))
 		}
+	}
+}
+
+var errBadRequest = fmt.Errorf("bad request")
+
+func (c *Client) toHTTPRequest(req *proto.HTTPRequest) (*http.Request, error) {
+	if req == nil {
+		return nil, fmt.Errorf("nil http request %w", errBadRequest)
+	}
+
+	reqHTTP, err := http.NewRequestWithContext(context.Background(), req.GetMethod(), req.GetPath(), bytes.NewReader(req.GetBody()))
+	if err != nil {
+		return nil, fmt.Errorf("http.NewRequest: error: %v", err)
+	}
+
+	for header, values := range req.GetHeaders() {
+		for _, value := range values.Value {
+			reqHTTP.Header.Add(header, value)
+		}
+	}
+
+	return reqHTTP, nil
+}
+
+func (c *Client) toResponse(resp *http.Response) *proto.HTTPResponse {
+	if resp == nil {
+		return &proto.HTTPResponse{
+			Error: lo.ToPtr("nil response"),
+		}
+	}
+	var headers map[string]*proto.HeaderValue
+	if resp.Header != nil {
+		headers = make(map[string]*proto.HeaderValue)
+		for h, v := range resp.Header {
+			headers[h] = &proto.HeaderValue{Value: v}
+		}
+	}
+	var bodyResp []byte
+	var errMessage *string
+	if resp.Body != nil {
+		var err error
+		bodyResp, err = io.ReadAll(resp.Body)
+		if err != nil {
+			errMessage = lo.ToPtr(fmt.Sprintf("io.ReadAll: body for error: %v", err))
+			bodyResp = nil
+		}
+	}
+
+	return &proto.HTTPResponse{
+		Body:    bodyResp,
+		Error:   errMessage,
+		Status:  int32(resp.StatusCode),
+		Headers: headers,
 	}
 }
