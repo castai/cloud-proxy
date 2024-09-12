@@ -10,8 +10,8 @@ import (
 
 	compute "cloud.google.com/go/compute/apiv1"
 	container "cloud.google.com/go/container/apiv1"
-	"github.com/castai/cloud-proxy/internal/castai/proto"
 	"github.com/castai/cloud-proxy/internal/e2etest"
+	proto "github.com/castai/cloud-proxy/proto/v1alpha"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
@@ -127,7 +127,8 @@ func (srv *TestSetup) StreamCloudProxy(stream proto.CloudProxyAPI_StreamCloudPro
 				return err
 			}
 
-			srv.logger.Printf("Got a response from client: %v, %v\n", in.MessageId, in.HttpResponse.Status)
+			srv.logger.Printf("Got a response from client: %v, %v\n",
+				in.GetResponse().GetMessageId(), in.GetResponse().GetHttpResponse().GetStatus())
 			srv.responseChan <- in
 		}
 	})

@@ -2,22 +2,24 @@ package proxy
 
 import (
 	"context"
+	"errors"
+	"github.com/castai/cloud-proxy/internal/cloud/gcp"
 	"io"
 	"time"
 
 	"google.golang.org/grpc"
 
-	"github.com/castai/cloud-proxy/internal/castai/proto"
+	proto "github.com/castai/cloud-proxy/proto/v1alpha"
 	"github.com/sirupsen/logrus"
 )
 
 type Client struct {
-	executor *Executor
+	executor *gcp.Client
 
 	logger *logrus.Logger
 }
 
-func NewClient(executor *Executor, logger *logrus.Logger) *Client {
+func NewClient(executor *gcp.Client, logger *logrus.Logger) *Client {
 	return &Client{executor: executor, logger: logger}
 }
 
@@ -38,7 +40,7 @@ func (client *Client) Run(ctx context.Context, grpcConn *grpc.ClientConn) {
 		// Inner loop handles "per-message" execution
 		for {
 			in, err := stream.Recv()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				client.logger.Println("Reconnecting")
 				break
 			}
@@ -60,7 +62,7 @@ func (client *Client) Run(ctx context.Context, grpcConn *grpc.ClientConn) {
 					// TODO: Sent error as metadata to cast
 					return
 				}
-				client.logger.Println("got response for request:", resp.MessageId)
+				client.logger.Println("got response for request:", resp.GetResponse().GetMessageId())
 
 				err = stream.Send(resp)
 				if err != nil {

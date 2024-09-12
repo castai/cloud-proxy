@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package cloud.proxy.v1alpha;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/castai/cloud-proxy/proto/v1alpha;cloudproxyv1alpha";
+
+// CloudProxyAPI provides the API for proxying cloud requests for CAST AI External Provisioner.
+service CloudProxyAPI {
+  // Stream from cluster to mothership.
+  rpc StreamCloudProxy(stream StreamCloudProxyRequest) returns (stream StreamCloudProxyResponse) {}
+
+  // Unary CloudProxy request from mothership.
+  rpc SendToProxy(SendToProxyRequest) returns (SendToProxyResponse) {}
+}
+
+message StreamCloudProxyRequest {
+  oneof request {
+    // Initial request to establish the connection.
+    InitialCloudProxyRequest initial_request = 1;
+    ClientStats client_stats = 2;
+    ClusterResponse response = 3;
+  }
+}
+
+message InitialCloudProxyRequest {
+  ClientMetadata client_metadata = 1;
+}
+
+message ClientStats {
+  ClientMetadata client_metadata = 1;
+
+  // The timestamp of generating the report.
+  google.protobuf.Timestamp timestamp = 2;
+
+  // The total number of RPCs that started.
+  int64 num_calls_started = 3;
+
+  // The total number of RPCs that finished.
+  int64 num_calls_finished = 4;
+
+  // The total number of RPCs that failed to reach a server except dropped RPCs.
+  int64 num_calls_finished_with_client_failed_to_send = 5;
+
+  // The total number of RPCs that finished and are known to have been received
+  // by a server.
+  int64 num_calls_finished_known_received = 6;
+}
+
+message ClusterResponse {
+  optional ClientMetadata client_metadata = 1;
+  string message_id = 2;
+  HTTPResponse http_response = 3;
+}
+
+message CloudProxyRequest {
+  string message_id = 3;
+  optional HTTPRequest http_request = 4;
+}
+
+message StreamCloudProxyResponse {
+  optional ClientMetadata client_metadata = 1;
+  string message_id = 3;
+  optional HTTPRequest http_request = 4;
+}
+
+message HTTPRequest {
+  string method = 1;
+  string path = 2;
+  optional bytes body = 3;
+  map<string, HeaderValue> headers = 4;
+}
+
+message HTTPResponse {
+  optional bytes body = 1;
+  optional string error = 2;
+  int32 status = 3;
+  map<string, HeaderValue> headers = 4;
+}
+
+message HeaderValue {
+  repeated string value = 1;
+}
+
+message SendToProxyRequest {
+  ClientMetadata client_metadata = 1;
+  HTTPRequest http_request = 2;
+}
+
+message SendToProxyResponse {
+  HTTPResponse http_response = 1;
+  string error = 2;
+}
+
+message ClientMetadata {
+  string cluster_id = 1;
+  string organization_id = 2;
+}

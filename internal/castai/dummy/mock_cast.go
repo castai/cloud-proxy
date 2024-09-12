@@ -2,6 +2,7 @@ package dummy
 
 import (
 	"fmt"
+	proto "github.com/castai/cloud-proxy/proto/v1alpha"
 	"io"
 	"log"
 	"net"
@@ -11,7 +12,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
-	"github.com/castai/cloud-proxy/internal/castai/proto"
 	"github.com/castai/cloud-proxy/internal/e2etest"
 )
 
@@ -117,7 +117,7 @@ func (msrv *MockCastServer) Proxy(stream proto.CloudProxyAPI_StreamCloudProxySer
 				return err
 			}
 
-			msrv.logger.Printf("Got a response from client: %v, %v\n", in.MessageId, in.HttpResponse.Status)
+			msrv.logger.Printf("Got a response from client: %v, %v\n", in.GetResponse().GetMessageId(), in.GetResponse().GetHttpResponse().GetStatus())
 			msrv.responseChan <- in
 		}
 	})
