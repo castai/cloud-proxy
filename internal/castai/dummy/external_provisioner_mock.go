@@ -7,9 +7,9 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"cloud-proxy/internal/e2etest"
 	container "cloud.google.com/go/container/apiv1"
 	"cloud.google.com/go/container/apiv1/containerpb"
-	"github.com/castai/cloud-proxy/internal/e2etest"
 	"google.golang.org/api/option"
 	htransport "google.golang.org/api/transport/http"
 )

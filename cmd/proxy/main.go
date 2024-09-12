@@ -1,10 +1,10 @@
 package main
 
 import (
+	"cloud-proxy/internal/cloud/gcp"
+	"cloud-proxy/internal/cloud/gcp/gcpauth"
 	"context"
 	"fmt"
-	"github.com/castai/cloud-proxy/internal/cloud/gcp"
-	"github.com/castai/cloud-proxy/internal/gcpauth"
 	"net/http"
 	"path"
 	"runtime"
@@ -16,8 +16,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/castai/cloud-proxy/internal/config"
-	"github.com/castai/cloud-proxy/internal/proxy"
+	"cloud-proxy/internal/config"
+	"cloud-proxy/internal/proxy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -77,9 +77,7 @@ func main() {
 		"authorization", fmt.Sprintf("Token %s", cfg.GRPC.Key),
 	))
 
-	src := gcpauth.GCPCredentialsSource{}
-
-	executor := gcp.NewExecutor(src, http.DefaultClient)
-	client := proxy.NewClient(executor, logger)
+	cloudClient := gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient)
+	client := proxy.New(cloudClient, logger)
 	client.Run(ctx, conn)
 }

@@ -1,15 +1,15 @@
 package proxy
 
 import (
+	"cloud-proxy/internal/cloud/gcp"
 	"context"
 	"errors"
-	"github.com/castai/cloud-proxy/internal/cloud/gcp"
 	"io"
 	"time"
 
 	"google.golang.org/grpc"
 
-	proto "github.com/castai/cloud-proxy/proto/v1alpha"
+	proto "cloud-proxy/proto/v1alpha"
 	"github.com/sirupsen/logrus"
 )
 
@@ -19,7 +19,7 @@ type Client struct {
 	logger *logrus.Logger
 }
 
-func NewClient(executor *gcp.Client, logger *logrus.Logger) *Client {
+func New(executor *gcp.Client, logger *logrus.Logger) *Client {
 	return &Client{executor: executor, logger: logger}
 }
 
