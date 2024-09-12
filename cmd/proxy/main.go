@@ -79,8 +79,7 @@ func main() {
 		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.ApiKey),
 	))
 
-	//TODO add clusterID to config
-	client := proxy.New(gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger, "cfg.ClusterID")
+	client := proxy.New(gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger, cfg.ClusterID)
 	err = client.Run(ctx, proto.NewCloudProxyAPIClient(conn))
 	if err != nil {
 		logger.Panicf("Failed to run client: %v", err)
