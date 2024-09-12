@@ -55,13 +55,14 @@ func main() {
 			Multiplier: 1.2,
 		},
 	}))
-	if cfg.GRPC.TLS.Enabled {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
-	} else {
+	if cfg.CastAI.DisableGRPCTLS {
+		// ONLY For testing purposes
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
 	}
 
-	conn, err := grpc.NewClient(cfg.GRPC.Endpoint, dialOpts...)
+	conn, err := grpc.NewClient(cfg.CastAI.GrpcURL, dialOpts...)
 	if err != nil {
 		logger.Panicf("Failed to connect to server: %v", err)
 	}
@@ -74,7 +75,7 @@ func main() {
 	}(conn)
 
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-		"authorization", fmt.Sprintf("Token %s", cfg.GRPC.Key),
+		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.ApiKey),
 	))
 
 	cloudClient := gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient)
