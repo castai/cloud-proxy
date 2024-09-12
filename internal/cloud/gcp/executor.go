@@ -24,8 +24,8 @@ func New(credentials *gcpauth.CredentialsSource, client *http.Client) *Client {
 	return &Client{credentials: credentials, httpClient: client}
 }
 
-func (c *Client) DoRequest(request *proto.StreamCloudProxyResponse) (*proto.StreamCloudProxyRequest, error) {
-	reqHTTP, err := c.toGCPRequest(request)
+func (c *Client) DoRequest(request *proto.StreamCloudProxyResponse) *proto.StreamCloudProxyRequest {
+	reqHTTP, err := c.toGCPRequest(request.GetMessageId(), request.GetHttpRequest())
 	if err != nil {
 		return &proto.StreamCloudProxyRequest{
 			Request: &proto.StreamCloudProxyRequest_Response{
@@ -34,7 +34,7 @@ func (c *Client) DoRequest(request *proto.StreamCloudProxyResponse) (*proto.Stre
 					HttpResponse: &proto.HTTPResponse{
 						Error: lo.ToPtr(fmt.Sprintf("bad request: msgID=%v error: %v", request.GetMessageId(), err)),
 					},
-				}}}, nil
+				}}}
 	}
 	resp, err := c.httpClient.Do(reqHTTP)
 	if err != nil {
@@ -45,29 +45,29 @@ func (c *Client) DoRequest(request *proto.StreamCloudProxyResponse) (*proto.Stre
 					HttpResponse: &proto.HTTPResponse{
 						Error: lo.ToPtr(fmt.Sprintf("httpClient.Do: request %+v error: %v", request, err)),
 					},
-				}}}, nil
+				}}}
 	}
 
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 
-	return c.toResponse(request.GetMessageId(), resp), nil
+	return c.toResponse(request.GetMessageId(), resp)
 }
 
 var errBadRequest = fmt.Errorf("bad request")
 
-func (c *Client) toGCPRequest(req *proto.StreamCloudProxyResponse) (*http.Request, error) {
-	if req == nil || req.GetHttpRequest() == nil {
-		return nil, fmt.Errorf("nil request or request body %w", errBadRequest)
+func (c *Client) toGCPRequest(msgID string, req *proto.HTTPRequest) (*http.Request, error) {
+	if req == nil {
+		return nil, fmt.Errorf("nil http request %w", errBadRequest)
 	}
 
-	reqHTTP, err := http.NewRequestWithContext(context.Background(), req.HttpRequest.Method, req.GetHttpRequest().Path, bytes.NewReader(req.GetHttpRequest().Body))
+	reqHTTP, err := http.NewRequestWithContext(context.Background(), req.GetMethod(), req.GetPath(), bytes.NewReader(req.GetBody()))
 	if err != nil {
-		return nil, fmt.Errorf("http.NewRequest: msgID=%v error: %v", req.GetMessageId(), err)
+		return nil, fmt.Errorf("http.NewRequest: msgID=%v error: %v", msgID, err)
 	}
 
-	for header, values := range req.GetHttpRequest().Headers {
+	for header, values := range req.GetHeaders() {
 		for _, value := range values.Value {
 			reqHTTP.Header.Add(header, value)
 		}
@@ -75,7 +75,7 @@ func (c *Client) toGCPRequest(req *proto.StreamCloudProxyResponse) (*http.Reques
 
 	token, err := c.credentials.GetToken()
 	if err != nil {
-		return nil, fmt.Errorf("credentialsSrc.GetToken: msgID=%v error: %v", req.GetMessageId(), err)
+		return nil, fmt.Errorf("credentialsSrc.GetToken: msgID=%v error: %v", msgID, err)
 	}
 	// Set the authorize header manually since we can't rely on mothership auth
 	reqHTTP.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))

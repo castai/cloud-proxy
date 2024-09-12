@@ -79,9 +79,13 @@ func main() {
 		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.ApiKey),
 	))
 
-	client := proxy.New(gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger, cfg.ClusterID)
+	client := proxy.New(gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger, cfg.ClusterID, GetVersion())
 	err = client.Run(ctx, proto.NewCloudProxyAPIClient(conn))
 	if err != nil {
 		logger.Panicf("Failed to run client: %v", err)
 	}
+}
+
+func GetVersion() string {
+	return fmt.Sprintf("GitCommit=%q GitRef=%q Version=%q", GitCommit, GitRef, Version)
 }

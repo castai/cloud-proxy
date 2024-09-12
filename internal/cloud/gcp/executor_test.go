@@ -17,7 +17,7 @@ import (
 
 type mockReadCloserErr struct{}
 
-func (m mockReadCloserErr) Read(p []byte) (int, error) {
+func (m mockReadCloserErr) Read(_ []byte) (int, error) {
 	return 0, io.ErrUnexpectedEOF
 }
 func (m mockReadCloserErr) Close() error { return nil }
@@ -113,7 +113,7 @@ func TestClient_toGCPRequest(t *testing.T) {
 		//httpClient     *http.Client
 	}
 	type args struct {
-		req *proto.StreamCloudProxyResponse
+		req *proto.HTTPRequest
 	}
 	tests := []struct {
 		name    string
@@ -127,22 +127,19 @@ func TestClient_toGCPRequest(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "httpRequest is nil",
-			args:    args{req: &proto.StreamCloudProxyResponse{}},
-			wantErr: true,
-		},
-		{
 			name: "error creating http request",
-			args: args{req: &proto.StreamCloudProxyResponse{
-				HttpRequest: &proto.HTTPRequest{
+			args: args{
+				req: &proto.HTTPRequest{
 					Path: "\n\t\f",
 				},
-			}},
+			},
 			wantErr: true,
 		},
 		{
 			name: "error getting creds",
-			args: args{req: &proto.StreamCloudProxyResponse{HttpRequest: &proto.HTTPRequest{}}},
+			args: args{
+				req: &proto.HTTPRequest{},
+			},
 			fields: fields{
 				tuneMockCredentials: func(m *mock_gcp.MockCredentials) {
 					m.EXPECT().GetToken().Return("", fmt.Errorf("test error"))
@@ -153,14 +150,12 @@ func TestClient_toGCPRequest(t *testing.T) {
 		{
 			name: "success",
 			args: args{
-				req: &proto.StreamCloudProxyResponse{
-					HttpRequest: &proto.HTTPRequest{
-						Method: "GET",
-						Headers: map[string]*proto.HeaderValue{
-							"header": {Value: []string{"value"}},
-						},
-						Body: []byte("body"),
+				req: &proto.HTTPRequest{
+					Method: "GET",
+					Headers: map[string]*proto.HeaderValue{
+						"header": {Value: []string{"value"}},
 					},
+					Body: []byte("body"),
 				},
 			},
 			fields: fields{
@@ -195,7 +190,7 @@ func TestClient_toGCPRequest(t *testing.T) {
 				tt.fields.tuneMockCredentials(m)
 				c.credentials = m
 			}
-			got, err := c.toGCPRequest(tt.args.req)
+			got, err := c.toGCPRequest("msgID", tt.args.req)
 			require.Equal(t, tt.wantErr, err != nil, err)
 			if err != nil {
 				return

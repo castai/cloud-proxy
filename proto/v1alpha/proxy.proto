@@ -6,6 +6,10 @@ option go_package = "github.com/castai/cloud-proxy/proto/v1alpha;cloudproxyv1alp
 
 // CloudProxyAPI provides the API for proxying cloud requests for CAST AI External Provisioner.
 service CloudProxyAPI {
+  //  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+  //    description: "Provides the API for CAST AI Cloud-proxy."
+  //  };
+
   // Stream from cluster to mothership.
   rpc StreamCloudProxy(stream StreamCloudProxyRequest) returns (stream StreamCloudProxyResponse) {}
 
@@ -24,6 +28,7 @@ message StreamCloudProxyRequest {
 
 message InitialCloudProxyRequest {
   ClientMetadata client_metadata = 1;
+  string version = 2;
 }
 
 message ClientStats {
@@ -64,8 +69,14 @@ message CloudProxyRequest {
 
 message StreamCloudProxyResponse {
   optional ClientMetadata client_metadata = 1;
-  string message_id = 3;
-  optional HTTPRequest http_request = 4;
+  string message_id = 2;
+  optional HTTPRequest http_request = 3;
+  optional ConfigurationRequest configuration_request = 4;
+}
+
+message ConfigurationRequest {
+  int64 keep_alive = 1;
+  int64 keep_alive_timeout = 2;
 }
 
 message HTTPRequest {
