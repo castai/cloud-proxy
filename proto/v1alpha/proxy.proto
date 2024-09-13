@@ -2,12 +2,14 @@ syntax = "proto3";
 
 package cloud.proxy.v1alpha;
 
-import "google/protobuf/timestamp.proto";
-
 option go_package = "github.com/castai/cloud-proxy/proto/v1alpha;cloudproxyv1alpha";
 
 // CloudProxyAPI provides the API for proxying cloud requests for CAST AI External Provisioner.
 service CloudProxyAPI {
+  //  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+  //    description: "Provides the API for CAST AI Cloud-proxy."
+  //  };
+
   // Stream from cluster to mothership.
   rpc StreamCloudProxy(stream StreamCloudProxyRequest) returns (stream StreamCloudProxyResponse) {}
 
@@ -26,13 +28,19 @@ message StreamCloudProxyRequest {
 
 message InitialCloudProxyRequest {
   ClientMetadata client_metadata = 1;
+  string version = 2;
 }
 
 message ClientStats {
   ClientMetadata client_metadata = 1;
 
-  // The timestamp of generating the report.
-  google.protobuf.Timestamp timestamp = 2;
+  // Status of the cluster client.
+  enum Status {
+    UNKNOWN = 0;
+    OK = 1;
+    CLOSING = 2;
+  }
+  Status status = 2;
 
   // The total number of RPCs that started.
   int64 num_calls_started = 3;
@@ -61,8 +69,14 @@ message CloudProxyRequest {
 
 message StreamCloudProxyResponse {
   optional ClientMetadata client_metadata = 1;
-  string message_id = 3;
-  optional HTTPRequest http_request = 4;
+  string message_id = 2;
+  optional HTTPRequest http_request = 3;
+  optional ConfigurationRequest configuration_request = 4;
+}
+
+message ConfigurationRequest {
+  int64 keep_alive = 1;
+  int64 keep_alive_timeout = 2;
 }
 
 message HTTPRequest {
@@ -95,5 +109,5 @@ message SendToProxyResponse {
 
 message ClientMetadata {
   string cluster_id = 1;
-  string organization_id = 2;
+  optional string organization_id = 2;
 }

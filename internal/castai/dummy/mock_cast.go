@@ -1,8 +1,8 @@
 package dummy
 
 import (
+	proto "cloud-proxy/proto/v1alpha"
 	"fmt"
-	proto "github.com/castai/cloud-proxy/proto/v1alpha"
 	"io"
 	"log"
 	"net"
@@ -12,7 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
-	"github.com/castai/cloud-proxy/internal/e2etest"
+	"cloud-proxy/internal/e2etest"
 )
 
 // MockCast simulates what cast would do but runs it in the same process:

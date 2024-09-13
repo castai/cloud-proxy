@@ -1,6 +1,9 @@
 package main
 
 import (
+	"cloud-proxy/internal/cloud/gcp"
+	"cloud-proxy/internal/cloud/gcp/gcpauth"
+	proto "cloud-proxy/proto/v1alpha"
 	"context"
 	"fmt"
 	"net/http"
@@ -8,17 +11,15 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/castai/cloud-proxy/internal/cloud/gcp"
-	"github.com/castai/cloud-proxy/internal/config"
-	"github.com/castai/cloud-proxy/internal/gcpauth"
-	"github.com/castai/cloud-proxy/internal/proxy"
+	"cloud-proxy/internal/config"
+	"cloud-proxy/internal/proxy"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -29,7 +30,6 @@ var (
 
 func main() {
 	cfg := config.Get()
-	//logrus.Println(cfg)
 
 	logger := logrus.New()
 	logger.SetLevel(logrus.Level(cfg.Log.Level))
@@ -79,9 +79,13 @@ func main() {
 		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.ApiKey),
 	))
 
-	src := gcpauth.GCPCredentialsSource{}
+	client := proxy.New(gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger, cfg.ClusterID, GetVersion())
+	err = client.Run(ctx, proto.NewCloudProxyAPIClient(conn))
+	if err != nil {
+		logger.Panicf("Failed to run client: %v", err)
+	}
+}
 
-	executor := gcp.NewExecutor(src, http.DefaultClient)
-	client := proxy.NewClient(executor, logger)
-	client.Run(ctx, conn)
+func GetVersion() string {
+	return fmt.Sprintf("GitCommit=%q GitRef=%q Version=%q", GitCommit, GitRef, Version)
 }

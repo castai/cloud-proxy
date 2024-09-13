@@ -8,10 +8,10 @@ import (
 	"net"
 	"net/http"
 
+	"cloud-proxy/internal/e2etest"
+	proto "cloud-proxy/proto/v1alpha"
 	compute "cloud.google.com/go/compute/apiv1"
 	container "cloud.google.com/go/container/apiv1"
-	"github.com/castai/cloud-proxy/internal/e2etest"
-	proto "github.com/castai/cloud-proxy/proto/v1alpha"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
