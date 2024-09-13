@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -13,7 +14,7 @@ type Config struct {
 
 	//MetricsAddress  string               `mapstructure:"metricsaddress"`
 	//HealthAddress   string               `mapstructure:"healthaddress"`
-	Log Log
+	Log Log `mapstructure:"log"`
 }
 
 // PodMetadata stores metadata for the pod, mostly used for logging and debugging purposes.
@@ -46,7 +47,7 @@ type GCP struct {
 }
 
 type Log struct {
-	Level int
+	Level int `mapstructure:"level"`
 }
 
 var cfg *Config = nil
@@ -70,7 +71,7 @@ func Get() Config {
 	v.MustBindEnv("podmetadata.nodename", "NODE_NAME")
 	v.MustBindEnv("podmetadata.podname", "POD_NAME")
 
-	// TODO: Logging
+	_ = v.BindEnv("log.level", "LOG_LEVEL")
 
 	cfg = &Config{}
 	if err := v.Unmarshal(cfg); err != nil {
@@ -88,6 +89,10 @@ func Get() Config {
 	}
 	if cfg.ClusterID == "" {
 		required("CLUSTER_ID")
+	}
+
+	if cfg.Log.Level == 0 {
+		cfg.Log.Level = int(logrus.InfoLevel)
 	}
 
 	return *cfg

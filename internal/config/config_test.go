@@ -26,6 +26,8 @@ func TestConfig(t *testing.T) {
 	t.Setenv("POD_NAME", "heavy-worker")
 	t.Setenv("NODE_NAME", "awesome-node")
 
+	t.Setenv("LOG_LEVEL", "3")
+
 	expected := Config{
 		CastAI: CastAPI{
 			ApiKey:         "API_KEY",
@@ -39,6 +41,9 @@ func TestConfig(t *testing.T) {
 			PodIP:        "192.168.0.1",
 			NodeName:     "awesome-node",
 			PodName:      "heavy-worker",
+		},
+		Log: Log{
+			Level: 3,
 		},
 	}
 

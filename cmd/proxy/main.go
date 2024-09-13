@@ -1,15 +1,16 @@
 package main
 
 import (
-	"cloud-proxy/internal/cloud/gcp"
-	"cloud-proxy/internal/cloud/gcp/gcpauth"
-	proto "cloud-proxy/proto/v1alpha"
 	"context"
 	"fmt"
 	"net/http"
 	"path"
 	"runtime"
 	"time"
+
+	"cloud-proxy/internal/cloud/gcp"
+	"cloud-proxy/internal/cloud/gcp/gcpauth"
+	proto "cloud-proxy/proto/v1alpha"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
@@ -29,6 +30,7 @@ var (
 )
 
 func main() {
+	logrus.Info("Starting proxy")
 	cfg := config.Get()
 
 	logger := logrus.New()
@@ -45,7 +47,7 @@ func main() {
 		"GitCommit": GitCommit,
 		"GitRef":    GitRef,
 		"Version":   Version,
-	}).Println("Starting cloud-proxy")
+	}).Info("Starting cloud-proxy")
 
 	dialOpts := make([]grpc.DialOption, 0)
 	dialOpts = append(dialOpts, grpc.WithConnectParams(grpc.ConnectParams{
@@ -63,12 +65,14 @@ func main() {
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
 	}
 
+	logger.Infof("Creating grpc channel against (%s) with options (%v)", cfg.CastAI.GrpcURL, dialOpts)
 	conn, err := grpc.NewClient(cfg.CastAI.GrpcURL, dialOpts...)
 	if err != nil {
 		logger.Panicf("Failed to connect to server: %v", err)
 	}
 
 	defer func(conn *grpc.ClientConn) {
+		logger.Info("Closing grpc connection")
 		err := conn.Close()
 		if err != nil {
 			logger.Panicf("Failed to close gRPC connection: %v", err)
