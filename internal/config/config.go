@@ -45,10 +45,6 @@ type GCP struct {
 	UseMetadataServer bool
 }
 
-type TLSConfig struct {
-	Enabled bool
-}
-
 type Log struct {
 	Level int
 }
@@ -79,6 +75,19 @@ func Get() Config {
 	cfg = &Config{}
 	if err := v.Unmarshal(cfg); err != nil {
 		panic(fmt.Errorf("while parsing config: %w", err))
+	}
+
+	if cfg.CastAI.ApiKey == "" {
+		required("CAST_API_KEY")
+	}
+	if cfg.CastAI.GrpcURL == "" {
+		required("CAST_GRPC_URL")
+	}
+	if cfg.CastAI.URL == "" {
+		required("CAST_URL")
+	}
+	if cfg.ClusterID == "" {
+		required("CLUSTER_ID")
 	}
 
 	return *cfg
