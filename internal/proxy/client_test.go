@@ -376,6 +376,8 @@ func TestClient_sendKeepAlive(t *testing.T) {
 					cancel()
 					return ctx
 				},
+				keepAlive:        int64(time.Second),
+				keepAliveTimeout: int64(10 * time.Minute),
 			},
 		},
 		{
