@@ -41,9 +41,9 @@ type Client struct {
 	version          string
 }
 
-func New(executor CloudClient, logger *logrus.Logger, clusterID, version string) *Client {
+func New(cloudClient CloudClient, logger *logrus.Logger, clusterID, version string) *Client {
 	c := &Client{
-		cloudClient: executor,
+		cloudClient: cloudClient,
 		log:         logger,
 		clusterID:   clusterID,
 		version:     version,
@@ -123,6 +123,10 @@ func (c *Client) run(ctx context.Context, grpcClient cloudproxyv1alpha.CloudProx
 }
 
 func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, stream StreamCloudProxyClient) {
+	if in == nil {
+		c.log.Error("nil message")
+		return
+	}
 	c.processConfigurationRequest(in)
 
 	// skip processing http request if keep alive message
