@@ -5,6 +5,7 @@ go 1.23.1
 require (
 	cloud.google.com/go/compute v1.28.0
 	cloud.google.com/go/container v1.39.0
+	github.com/castai/cloud-proxy v0.0.0-00010101000000-000000000000
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/samber/lo v1.47.0
@@ -63,3 +64,5 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/castai/cloud-proxy => ./

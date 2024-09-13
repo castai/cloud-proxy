@@ -2,11 +2,10 @@ package proxy
 
 import (
 	"bytes"
-	mock_cloud "cloud-proxy/internal/proxy/mock"
-	cloudproxyv1alpha "cloud-proxy/proto/v1alpha"
-	proto "cloud-proxy/proto/v1alpha"
+	mock_proxy "cloud-proxy/internal/proxy/mock"
 	"context"
 	"fmt"
+	cloudproxyv1alpha "github.com/castai/cloud-proxy/proto/gen/proto/v1alpha"
 	"github.com/golang/mock/gomock"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -40,11 +39,11 @@ func TestClient_toResponse(t *testing.T) {
 		name   string
 		fields fields
 		args   args
-		want   *proto.HTTPResponse
+		want   *cloudproxyv1alpha.HTTPResponse
 	}{
 		{
 			name: "nil response",
-			want: &proto.HTTPResponse{
+			want: &cloudproxyv1alpha.HTTPResponse{
 				Error: lo.ToPtr("nil response"),
 			},
 		},
@@ -55,7 +54,7 @@ func TestClient_toResponse(t *testing.T) {
 					Body: &mockReadCloserErr{},
 				},
 			},
-			want: &proto.HTTPResponse{
+			want: &cloudproxyv1alpha.HTTPResponse{
 				Error: lo.ToPtr("io.ReadAll: body for error: unexpected EOF"),
 			},
 		},
@@ -69,10 +68,10 @@ func TestClient_toResponse(t *testing.T) {
 					Body:       io.NopCloser(bytes.NewReader([]byte("body"))),
 				},
 			},
-			want: &proto.HTTPResponse{
+			want: &cloudproxyv1alpha.HTTPResponse{
 				Body:    []byte("body"),
 				Status:  200,
-				Headers: map[string]*proto.HeaderValue{"header": {Value: []string{"value"}}},
+				Headers: map[string]*cloudproxyv1alpha.HeaderValue{"header": {Value: []string{"value"}}},
 			},
 		},
 	}
@@ -80,7 +79,7 @@ func TestClient_toResponse(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			c := New(nil, nil, "clusterID", "version")
+			c := New(nil, nil, nil, "clusterID", "version")
 			got := c.toResponse(tt.args.resp)
 			//diff := cmp.Diff(got, tt.want, protocmp.Transform())
 			//require.Empty(t, diff)
@@ -93,7 +92,7 @@ func TestClient_toHTTPRequest(t *testing.T) {
 	t.Parallel()
 
 	type args struct {
-		req *proto.HTTPRequest
+		req *cloudproxyv1alpha.HTTPRequest
 	}
 	tests := []struct {
 		name    string
@@ -108,7 +107,7 @@ func TestClient_toHTTPRequest(t *testing.T) {
 		{
 			name: "error creating http request",
 			args: args{
-				req: &proto.HTTPRequest{
+				req: &cloudproxyv1alpha.HTTPRequest{
 					Path: "\n\t\f",
 				},
 			},
@@ -117,9 +116,9 @@ func TestClient_toHTTPRequest(t *testing.T) {
 		{
 			name: "success",
 			args: args{
-				req: &proto.HTTPRequest{
+				req: &cloudproxyv1alpha.HTTPRequest{
 					Method: "GET",
-					Headers: map[string]*proto.HeaderValue{
+					Headers: map[string]*cloudproxyv1alpha.HeaderValue{
 						"header": {Value: []string{"value"}},
 					},
 					Body: []byte("body"),
@@ -143,7 +142,7 @@ func TestClient_toHTTPRequest(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			c := New(nil, nil, "clusterID", "version")
+			c := New(nil, nil, nil, "clusterID", "version")
 			got, err := c.toHTTPRequest(tt.args.req)
 			require.Equal(t, tt.wantErr, err != nil, err)
 			if err != nil {
@@ -160,11 +159,11 @@ func TestClient_handleMessage(t *testing.T) {
 	t.Parallel()
 
 	type fields struct {
-		tuneMockCloudClient func(m *mock_cloud.MockCloudClient)
+		tuneMockCloudClient func(m *mock_proxy.MockCloudClient)
 	}
 	type args struct {
 		in             *cloudproxyv1alpha.StreamCloudProxyResponse
-		tuneMockStream func(m *mock_cloud.MockStreamCloudProxyClient)
+		tuneMockStream func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient)
 	}
 	tests := []struct {
 		name                 string
@@ -197,7 +196,7 @@ func TestClient_handleMessage(t *testing.T) {
 			args: args{
 				in: &cloudproxyv1alpha.StreamCloudProxyResponse{
 					MessageId: KeepAliveMessageID,
-					ConfigurationRequest: &proto.ConfigurationRequest{
+					ConfigurationRequest: &cloudproxyv1alpha.ConfigurationRequest{
 						KeepAlive:        1,
 						KeepAliveTimeout: 2,
 					},
@@ -212,9 +211,9 @@ func TestClient_handleMessage(t *testing.T) {
 			args: args{
 				in: &cloudproxyv1alpha.StreamCloudProxyResponse{
 					MessageId:   "msgID",
-					HttpRequest: &proto.HTTPRequest{},
+					HttpRequest: &cloudproxyv1alpha.HTTPRequest{},
 				},
-				tuneMockStream: func(m *mock_cloud.MockStreamCloudProxyClient) {
+				tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
 					m.EXPECT().Send(&cloudproxyv1alpha.StreamCloudProxyRequest{
 						Request: &cloudproxyv1alpha.StreamCloudProxyRequest_Response{
 							Response: &cloudproxyv1alpha.ClusterResponse{
@@ -231,7 +230,7 @@ func TestClient_handleMessage(t *testing.T) {
 				},
 			},
 			fields: fields{
-				tuneMockCloudClient: func(m *mock_cloud.MockCloudClient) {
+				tuneMockCloudClient: func(m *mock_proxy.MockCloudClient) {
 					m.EXPECT().DoHTTPRequest(gomock.Any()).Return(nil, fmt.Errorf("error"))
 				},
 			},
@@ -247,12 +246,12 @@ func TestClient_handleMessage(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			cloudClient := mock_cloud.NewMockCloudClient(ctrl)
+			cloudClient := mock_proxy.NewMockCloudClient(ctrl)
 			if tt.fields.tuneMockCloudClient != nil {
 				tt.fields.tuneMockCloudClient(cloudClient)
 			}
-			c := New(cloudClient, logrus.New(), "clusterID", "version")
-			stream := mock_cloud.NewMockStreamCloudProxyClient(ctrl)
+			c := New(nil, cloudClient, logrus.New(), "clusterID", "version")
+			stream := mock_proxy.NewMockCloudProxyAPI_StreamCloudProxyClient(ctrl)
 			if tt.args.tuneMockStream != nil {
 				tt.args.tuneMockStream(stream)
 			}
@@ -269,7 +268,7 @@ func TestClient_handleMessage(t *testing.T) {
 func TestClient_processHttpRequest(t *testing.T) {
 	t.Parallel()
 	type fields struct {
-		tuneMockCloudClient func(m *mock_cloud.MockCloudClient)
+		tuneMockCloudClient func(m *mock_proxy.MockCloudClient)
 	}
 	type args struct {
 		req *cloudproxyv1alpha.HTTPRequest
@@ -290,7 +289,7 @@ func TestClient_processHttpRequest(t *testing.T) {
 		{
 			name: "error creating http request",
 			args: args{
-				req: &proto.HTTPRequest{
+				req: &cloudproxyv1alpha.HTTPRequest{
 					Path: "\n\t\f",
 				},
 			},
@@ -301,10 +300,10 @@ func TestClient_processHttpRequest(t *testing.T) {
 		{
 			name: "cloud client error",
 			args: args{
-				req: &proto.HTTPRequest{},
+				req: &cloudproxyv1alpha.HTTPRequest{},
 			},
 			fields: fields{
-				tuneMockCloudClient: func(m *mock_cloud.MockCloudClient) {
+				tuneMockCloudClient: func(m *mock_proxy.MockCloudClient) {
 					m.EXPECT().DoHTTPRequest(gomock.Any()).Return(nil, fmt.Errorf("error"))
 				},
 			},
@@ -315,10 +314,10 @@ func TestClient_processHttpRequest(t *testing.T) {
 		{
 			name: "success",
 			args: args{
-				req: &proto.HTTPRequest{},
+				req: &cloudproxyv1alpha.HTTPRequest{},
 			},
 			fields: fields{
-				tuneMockCloudClient: func(m *mock_cloud.MockCloudClient) {
+				tuneMockCloudClient: func(m *mock_proxy.MockCloudClient) {
 					m.EXPECT().DoHTTPRequest(gomock.Any()).Return(&http.Response{}, nil)
 				},
 			},
@@ -332,11 +331,11 @@ func TestClient_processHttpRequest(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			cloudClient := mock_cloud.NewMockCloudClient(ctrl)
+			cloudClient := mock_proxy.NewMockCloudClient(ctrl)
 			if tt.fields.tuneMockCloudClient != nil {
 				tt.fields.tuneMockCloudClient(cloudClient)
 			}
-			c := New(cloudClient, logrus.New(), "clusterID", "version")
+			c := New(nil, cloudClient, logrus.New(), "clusterID", "version")
 			if got := c.processHttpRequest(tt.args.req); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("processHttpRequest() = %v, want %v", got, tt.want)
 			}
@@ -350,7 +349,7 @@ func TestClient_sendKeepAlive(t *testing.T) {
 
 	type args struct {
 		ctx              func() context.Context
-		tuneMockStream   func(m *mock_cloud.MockStreamCloudProxyClient)
+		tuneMockStream   func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient)
 		keepAlive        int64
 		keepAliveTimeout int64
 	}
@@ -386,7 +385,7 @@ func TestClient_sendKeepAlive(t *testing.T) {
 				ctx: func() context.Context {
 					return context.Background()
 				},
-				tuneMockStream: func(m *mock_cloud.MockStreamCloudProxyClient) {
+				tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
 					m.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("error"))
 				},
 				keepAlive:        int64(time.Second),
@@ -402,11 +401,11 @@ func TestClient_sendKeepAlive(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			c := New(nil, logrus.New(), "clusterID", "version")
+			c := New(nil, nil, logrus.New(), "clusterID", "version")
 			c.keepAlive.Store(tt.args.keepAlive)
 			c.keepAliveTimeout.Store(tt.args.keepAliveTimeout)
 
-			stream := mock_cloud.NewMockStreamCloudProxyClient(ctrl)
+			stream := mock_proxy.NewMockCloudProxyAPI_StreamCloudProxyClient(ctrl)
 			if tt.args.tuneMockStream != nil {
 				tt.args.tuneMockStream(stream)
 			}
@@ -414,6 +413,68 @@ func TestClient_sendKeepAlive(t *testing.T) {
 
 			c.sendKeepAlive(tt.args.ctx(), stream)
 			require.Equal(t, tt.isLastSeenZero, c.lastSeen.Load() == 0, "lastSeen: %v", c.lastSeen.Load())
+		})
+	}
+}
+
+func TestClient_run(t *testing.T) {
+	t.Parallel()
+	type fields struct {
+	}
+	type args struct {
+		ctx            func() context.Context
+		tuneMockStream func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient)
+	}
+	tests := []struct {
+		name                string
+		fields              fields
+		args                args
+		wantErr             bool
+		wantLastSeenUpdated bool
+	}{
+		{
+			name: "send initial error",
+			args: args{
+				ctx: func() context.Context {
+					return context.Background()
+				},
+				tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
+					m.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("test error"))
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "context done",
+			args: args{
+				ctx: func() context.Context {
+					ctx, cancel := context.WithCancel(context.Background())
+					cancel()
+					return ctx
+				},
+				tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
+					m.EXPECT().Send(gomock.Any()).Return(nil)
+				},
+			},
+			wantLastSeenUpdated: true,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			c := New(nil, nil, logrus.New(), "clusterID", "version")
+			stream := mock_proxy.NewMockCloudProxyAPI_StreamCloudProxyClient(ctrl)
+			if tt.args.tuneMockStream != nil {
+				tt.args.tuneMockStream(stream)
+			}
+			if err := c.run(tt.args.ctx(), stream, func() {}); (err != nil) != tt.wantErr {
+				t.Errorf("run() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			require.Equal(t, tt.wantLastSeenUpdated, c.lastSeen.Load() > 0, "lastSeen: %v", c.lastSeen.Load())
 		})
 	}
 }

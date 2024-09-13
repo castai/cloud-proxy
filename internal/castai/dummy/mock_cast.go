@@ -1,8 +1,8 @@
 package dummy
 
 import (
-	proto "cloud-proxy/proto/v1alpha"
 	"fmt"
+	cloudproxyv1alpha "github.com/castai/cloud-proxy/proto/gen/proto/v1alpha"
 	"io"
 	"log"
 	"net"
@@ -25,7 +25,7 @@ type MockCast struct {
 func (mc *MockCast) Run() error {
 	logger := log.New(os.Stderr, "[CAST-MOCK] ", log.LstdFlags)
 
-	requestChan, respChan := make(chan *proto.StreamCloudProxyResponse), make(chan *proto.StreamCloudProxyRequest)
+	requestChan, respChan := make(chan *cloudproxyv1alpha.StreamCloudProxyResponse), make(chan *cloudproxyv1alpha.StreamCloudProxyRequest)
 
 	// Start the mock server
 	listener, err := net.Listen("tcp", ":50051")
@@ -34,7 +34,7 @@ func (mc *MockCast) Run() error {
 	}
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterCloudProxyAPIServer(grpcServer, NewMockCastServer(requestChan, respChan, logger))
+	cloudproxyv1alpha.RegisterCloudProxyAPIServer(grpcServer, NewMockCastServer(requestChan, respChan, logger))
 
 	dispatcher := e2etest.NewDispatcher(requestChan, respChan, logger)
 
@@ -68,15 +68,15 @@ func (mc *MockCast) Run() error {
 }
 
 type MockCastServer struct {
-	proto.UnimplementedCloudProxyAPIServer
+	cloudproxyv1alpha.UnimplementedCloudProxyAPIServer
 
-	requestChan  <-chan *proto.StreamCloudProxyResponse
-	responseChan chan<- *proto.StreamCloudProxyRequest
+	requestChan  <-chan *cloudproxyv1alpha.StreamCloudProxyResponse
+	responseChan chan<- *cloudproxyv1alpha.StreamCloudProxyRequest
 
 	logger *log.Logger
 }
 
-func NewMockCastServer(requestChan <-chan *proto.StreamCloudProxyResponse, responseChan chan<- *proto.StreamCloudProxyRequest, logger *log.Logger) *MockCastServer {
+func NewMockCastServer(requestChan <-chan *cloudproxyv1alpha.StreamCloudProxyResponse, responseChan chan<- *cloudproxyv1alpha.StreamCloudProxyRequest, logger *log.Logger) *MockCastServer {
 	return &MockCastServer{
 		requestChan:  requestChan,
 		responseChan: responseChan,
@@ -84,7 +84,7 @@ func NewMockCastServer(requestChan <-chan *proto.StreamCloudProxyResponse, respo
 	}
 }
 
-func (msrv *MockCastServer) Proxy(stream proto.CloudProxyAPI_StreamCloudProxyServer) error {
+func (msrv *MockCastServer) Proxy(stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyServer) error {
 	msrv.logger.Println("Received a proxy connection from client")
 
 	var eg errgroup.Group

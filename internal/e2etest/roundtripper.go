@@ -2,8 +2,8 @@ package e2etest
 
 import (
 	"bytes"
-	proto "cloud-proxy/proto/v1alpha"
 	"fmt"
+	cloudproxyv1alpha "github.com/castai/cloud-proxy/proto/gen/proto/v1alpha"
 	"io"
 	"log"
 	"net/http"
@@ -24,14 +24,14 @@ func NewHttpOverGrpcRoundTripper(dispatcher *Dispatcher, logger *log.Logger) *Ht
 func (p *HttpOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
 	requestID := uuid.New().String()
 
-	headers := make(map[string]*proto.HeaderValue)
+	headers := make(map[string]*cloudproxyv1alpha.HeaderValue)
 	for h, v := range request.Header {
-		headers[h] = &proto.HeaderValue{Value: v}
+		headers[h] = &cloudproxyv1alpha.HeaderValue{Value: v}
 	}
 
-	protoReq := &proto.StreamCloudProxyResponse{
+	protoReq := &cloudproxyv1alpha.StreamCloudProxyResponse{
 		MessageId: requestID,
-		HttpRequest: &proto.HTTPRequest{
+		HttpRequest: &cloudproxyv1alpha.HTTPRequest{
 			Method:  request.Method,
 			Path:    request.URL.String(),
 			Headers: headers,
