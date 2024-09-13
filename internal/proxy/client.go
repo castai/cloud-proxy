@@ -123,11 +123,14 @@ func (c *Client) run(ctx context.Context, grpcClient cloudproxyv1alpha.CloudProx
 }
 
 func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, stream StreamCloudProxyClient) {
+	c.processConfigurationRequest(in)
+
+	// skip processing http request if keep alive message
 	if in.GetMessageId() == KeepAliveMessageID {
 		c.lastSeen.Store(time.Now().UnixNano())
+		return
 	}
 
-	c.processConfigurationRequest(in)
 	resp := c.processHttpRequest(in.GetHttpRequest())
 	err := stream.Send(&cloudproxyv1alpha.StreamCloudProxyRequest{
 		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_Response{
