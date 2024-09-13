@@ -110,4 +110,6 @@ message SendToProxyResponse {
 message ClientMetadata {
   string cluster_id = 1;
   optional string organization_id = 2;
+  string namespace = 3;
+  string pod_name = 4;
 }
