@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
+	"time"
 )
 
 type mockReadCloserErr struct{}
@@ -348,13 +349,15 @@ func TestClient_sendKeepAlive(t *testing.T) {
 	t.Parallel()
 
 	type args struct {
-		ctx            func() context.Context
-		tuneMockStream func(m *mock_cloud.MockStreamCloudProxyClient)
-		keepAlive      int64
+		ctx              func() context.Context
+		tuneMockStream   func(m *mock_cloud.MockStreamCloudProxyClient)
+		keepAlive        int64
+		keepAliveTimeout int64
 	}
 	tests := []struct {
-		name string
-		args args
+		name           string
+		args           args
+		isLastSeenZero bool
 	}{
 		{
 			name: "end of ticker",
@@ -375,6 +378,20 @@ func TestClient_sendKeepAlive(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "send returned error, should exit",
+			args: args{
+				ctx: func() context.Context {
+					return context.Background()
+				},
+				tuneMockStream: func(m *mock_cloud.MockStreamCloudProxyClient) {
+					m.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("error"))
+				},
+				keepAlive:        int64(time.Second),
+				keepAliveTimeout: int64(10 * time.Minute),
+			},
+			isLastSeenZero: true,
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -385,12 +402,16 @@ func TestClient_sendKeepAlive(t *testing.T) {
 
 			c := New(nil, logrus.New(), "clusterID", "version")
 			c.keepAlive.Store(tt.args.keepAlive)
+			c.keepAliveTimeout.Store(tt.args.keepAliveTimeout)
 
 			stream := mock_cloud.NewMockStreamCloudProxyClient(ctrl)
 			if tt.args.tuneMockStream != nil {
 				tt.args.tuneMockStream(stream)
 			}
+			c.lastSeen.Store(time.Now().UnixNano())
+
 			c.sendKeepAlive(tt.args.ctx(), stream)
+			require.Equal(t, tt.isLastSeenZero, c.lastSeen.Load() == 0, "lastSeen: %v", c.lastSeen.Load())
 		})
 	}
 }
