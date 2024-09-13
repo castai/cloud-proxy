@@ -69,6 +69,7 @@ func main() {
 	conn, err := grpc.NewClient(cfg.CastAI.GrpcURL, dialOpts...)
 	if err != nil {
 		logger.Panicf("Failed to connect to server: %v", err)
+		panic(err)
 	}
 
 	defer func(conn *grpc.ClientConn) {
@@ -76,6 +77,7 @@ func main() {
 		err := conn.Close()
 		if err != nil {
 			logger.Panicf("Failed to close gRPC connection: %v", err)
+			panic(err)
 		}
 	}(conn)
 
@@ -87,6 +89,7 @@ func main() {
 	err = client.Run(ctx, proto.NewCloudProxyAPIClient(conn))
 	if err != nil {
 		logger.Panicf("Failed to run client: %v", err)
+		panic(err)
 	}
 }
 
