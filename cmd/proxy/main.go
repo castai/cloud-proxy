@@ -81,7 +81,7 @@ func main() {
 	client := proxy.New(conn, gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger, cfg.ClusterID, GetVersion())
 	err = client.Run(ctx)
 	if err != nil {
-		logger.Panicf("Failed to run client: %v", err)
+		logger.Errorf("Failed to run client: %v", err)
 	}
 }
 
