@@ -50,14 +50,6 @@ func main() {
 	}).Info("Starting cloud-proxy")
 
 	dialOpts := make([]grpc.DialOption, 0)
-	dialOpts = append(dialOpts, grpc.WithConnectParams(grpc.ConnectParams{
-		Backoff: backoff.Config{
-			BaseDelay:  2 * time.Second,
-			Jitter:     0.1,
-			MaxDelay:   5 * time.Second,
-			Multiplier: 1.2,
-		},
-	}))
 	if cfg.CastAI.DisableGRPCTLS {
 		// ONLY For testing purposes
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -65,7 +57,22 @@ func main() {
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
 	}
 
-	logger.Infof("Creating grpc channel against (%s) with options (%v)", cfg.CastAI.GrpcURL, dialOpts)
+	connectParams := grpc.ConnectParams{
+		Backoff: backoff.Config{
+			BaseDelay:  2 * time.Second,
+			Jitter:     0.1,
+			MaxDelay:   5 * time.Second,
+			Multiplier: 1.2,
+		},
+	}
+	dialOpts = append(dialOpts, grpc.WithConnectParams(connectParams))
+
+	logger.Infof(
+		"Creating grpc channel against (%s) with connection config (%v) and TLS enabled=%v",
+		cfg.CastAI.GrpcURL,
+		connectParams,
+		!cfg.CastAI.DisableGRPCTLS,
+	)
 	conn, err := grpc.NewClient(cfg.CastAI.GrpcURL, dialOpts...)
 	if err != nil {
 		logger.Panicf("Failed to connect to server: %v", err)
