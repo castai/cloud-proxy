@@ -45,7 +45,7 @@ func main() {
 		"GitCommit": GitCommit,
 		"GitRef":    GitRef,
 		"Version":   Version,
-	}).Info("Starting cloud-proxy")
+	}).Infof("Starting cloud-proxy: %+v", cfg)
 
 	dialOpts := make([]grpc.DialOption, 0)
 	if cfg.CastAI.DisableGRPCTLS {
