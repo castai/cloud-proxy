@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	"cloud-proxy/internal/e2etest"
-	proto "cloud-proxy/proto/v1alpha"
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 	compute "cloud.google.com/go/compute/apiv1"
 	container "cloud.google.com/go/container/apiv1"
 	"golang.org/x/sync/errgroup"
@@ -24,7 +24,7 @@ type Server interface {
 }
 
 type TestSetup struct {
-	proto.UnimplementedCloudProxyAPIServer
+	cloudproxyv1alpha.UnimplementedCloudProxyAPIServer
 
 	result bool
 
@@ -32,14 +32,14 @@ type TestSetup struct {
 	dispatcher   *e2etest.Dispatcher
 	roundTripper *e2etest.HttpOverGrpcRoundTripper
 
-	requestChan  chan *proto.StreamCloudProxyResponse
-	responseChan chan *proto.StreamCloudProxyRequest
+	requestChan  chan *cloudproxyv1alpha.StreamCloudProxyResponse
+	responseChan chan *cloudproxyv1alpha.StreamCloudProxyRequest
 
 	logger *log.Logger
 }
 
 func NewTestSetup(logger *log.Logger) *TestSetup {
-	requestChan, respChan := make(chan *proto.StreamCloudProxyResponse), make(chan *proto.StreamCloudProxyRequest)
+	requestChan, respChan := make(chan *cloudproxyv1alpha.StreamCloudProxyResponse), make(chan *cloudproxyv1alpha.StreamCloudProxyRequest)
 	dispatcher := e2etest.NewDispatcher(requestChan, respChan, logger)
 	roundTrip := e2etest.NewHttpOverGrpcRoundTripper(dispatcher, logger)
 
@@ -62,7 +62,7 @@ func (srv *TestSetup) StartServer() error {
 	}
 
 	srv.grpcServer = grpc.NewServer()
-	proto.RegisterCloudProxyAPIServer(srv.grpcServer, srv)
+	cloudproxyv1alpha.RegisterCloudProxyAPIServer(srv.grpcServer, srv)
 
 	go func() {
 		if err := srv.grpcServer.Serve(list); err != nil {
@@ -81,7 +81,7 @@ func (srv *TestSetup) GracefulStopServer() {
 	srv.grpcServer.Stop()
 }
 
-func (srv *TestSetup) StreamCloudProxy(stream proto.CloudProxyAPI_StreamCloudProxyServer) error {
+func (srv *TestSetup) StreamCloudProxy(stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyServer) error {
 	srv.logger.Println("Received a proxy connection from client")
 
 	//md, ok := metadata.FromIncomingContext(stream.Context())

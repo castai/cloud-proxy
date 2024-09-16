@@ -1,20 +1,20 @@
-//go:generate mockgen -destination ./mock/cloud.go -package=mock_cloud cloud-proxy/internal/proxy CloudClient
-//go:generate mockgen -destination ./mock/stream.go -package=mock_cloud cloud-proxy/internal/proxy StreamCloudProxyClient
+//go:generate mockgen -package=mock_proxy -source $GOFILE -destination mock/$GOFILE .
+//go:generate mockgen -package=mock_proxy -destination mock/stream.go cloud-proxy/proto/gen/proto/v1alpha CloudProxyAPI_StreamCloudProxyClient
+
 package proxy
 
 import (
 	"bytes"
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 	"context"
 	"fmt"
+	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"io"
 	"net/http"
 	"sync/atomic"
 	"time"
-
-	cloudproxyv1alpha "cloud-proxy/proto/v1alpha"
-	proto "cloud-proxy/proto/v1alpha"
-	"github.com/samber/lo"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -23,12 +23,12 @@ const (
 	KeepAliveTimeoutDefault = time.Minute
 )
 
-type StreamCloudProxyClient = cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient
 type CloudClient interface {
 	DoHTTPRequest(request *http.Request) (*http.Response, error)
 }
 
 type Client struct {
+	grpcConn    *grpc.ClientConn
 	cloudClient CloudClient
 	log         *logrus.Logger
 	clusterID   string
@@ -42,9 +42,10 @@ type Client struct {
 	version          string
 }
 
-func New(executor CloudClient, logger *logrus.Logger, clusterID, version string) *Client {
+func New(grpcConn *grpc.ClientConn, cloudClient CloudClient, logger *logrus.Logger, clusterID, version string) *Client {
 	c := &Client{
-		cloudClient: executor,
+		grpcConn:    grpcConn,
+		cloudClient: cloudClient,
 		log:         logger,
 		clusterID:   clusterID,
 		version:     version,
@@ -55,29 +56,46 @@ func New(executor CloudClient, logger *logrus.Logger, clusterID, version string)
 	return c
 }
 
-func (c *Client) Run(ctx context.Context, grpcClient cloudproxyv1alpha.CloudProxyAPIClient) error {
+func (c *Client) Run(ctx context.Context) error {
 	for {
 		if ctx.Err() != nil {
 			return nil
 		}
 		c.log.Info("Starting proxy client")
-		err := c.run(ctx, grpcClient)
+		stream, closeStream, err := c.getStream()
 		if err != nil {
-			c.log.Printf("c.run exited: %v", err)
+			c.log.Errorf("c.getStream: %v", err)
+			time.Sleep(time.Second)
+			continue
+		}
+		err = c.run(ctx, stream, closeStream)
+		if err != nil {
+			c.log.Errorf("c.run exited: %v", err)
 		}
 	}
 }
 
-func (c *Client) initializeStream(ctx context.Context, proxyCastAIClient cloudproxyv1alpha.CloudProxyAPIClient) (StreamCloudProxyClient, error) {
+func (c *Client) getStream() (cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient, func(), error) {
 	c.log.Info("Connecting to castai")
-
-	stream, err := proxyCastAIClient.StreamCloudProxy(ctx)
+	apiClient := cloudproxyv1alpha.NewCloudProxyAPIClient(c.grpcConn)
+	stream, err := apiClient.StreamCloudProxy(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("proxyCastAIClient.StreamCloudProxy: %w", err)
+		return nil, nil, fmt.Errorf("proxyCastAIClient.StreamCloudProxy: %w", err)
 	}
-	c.log.Info("Connected to castai, sending initial metadata")
 
-	err = stream.Send(&cloudproxyv1alpha.StreamCloudProxyRequest{
+	c.log.Info("Connected to castai, sending initial metadata")
+	return stream, func() {
+		err := stream.CloseSend()
+		if err != nil {
+			c.log.Errorf("error closing stream %v", err)
+		}
+	}, nil
+}
+
+func (c *Client) sendInitialRequest(stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient) error {
+	c.log.Info("Seding initial request to castai")
+
+	err := stream.Send(&cloudproxyv1alpha.StreamCloudProxyRequest{
 		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_InitialRequest{
 			InitialRequest: &cloudproxyv1alpha.InitialCloudProxyRequest{
 				ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
@@ -88,33 +106,31 @@ func (c *Client) initializeStream(ctx context.Context, proxyCastAIClient cloudpr
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("stream.Send: initial request %w", err)
+		return fmt.Errorf("stream.Send: initial request %w", err)
 	}
 	c.lastSeen.Store(time.Now().UnixNano())
 
 	c.log.Info("Stream to castai started successfully")
 
-	return stream, nil
+	return nil
 }
 
-func (c *Client) run(ctx context.Context, grpcClient cloudproxyv1alpha.CloudProxyAPIClient) error {
-	stream, err := c.initializeStream(ctx, grpcClient)
+func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient, closeStream func()) error {
+	defer closeStream()
+
+	err := c.sendInitialRequest(stream)
 	if err != nil {
 		return fmt.Errorf("c.Connect: %w", err)
 	}
-
-	defer func() {
-		err := stream.CloseSend()
-		if err != nil {
-			c.log.Errorf("error closing stream: %v", err)
-		}
-	}()
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go c.sendKeepAlive(ctxWithCancel, stream)
 
 	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if !c.isAlive() {
 			return fmt.Errorf("last seen too old, closing stream")
 		}
@@ -129,7 +145,11 @@ func (c *Client) run(ctx context.Context, grpcClient cloudproxyv1alpha.CloudProx
 	}
 }
 
-func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, stream StreamCloudProxyClient) {
+func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient) {
+	if in == nil {
+		c.log.Error("nil message")
+		return
+	}
 	c.processConfigurationRequest(in)
 
 	// skip processing http request if keep alive message
@@ -206,7 +226,7 @@ func (c *Client) isAlive() bool {
 	return true
 }
 
-func (c *Client) sendKeepAlive(ctx context.Context, stream StreamCloudProxyClient) {
+func (c *Client) sendKeepAlive(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient) {
 	ticker := time.NewTimer(time.Duration(c.keepAlive.Load()))
 	defer ticker.Stop()
 
@@ -244,7 +264,7 @@ func (c *Client) sendKeepAlive(ctx context.Context, stream StreamCloudProxyClien
 
 var errBadRequest = fmt.Errorf("bad request")
 
-func (c *Client) toHTTPRequest(req *proto.HTTPRequest) (*http.Request, error) {
+func (c *Client) toHTTPRequest(req *cloudproxyv1alpha.HTTPRequest) (*http.Request, error) {
 	if req == nil {
 		return nil, fmt.Errorf("nil http request %w", errBadRequest)
 	}
@@ -263,17 +283,17 @@ func (c *Client) toHTTPRequest(req *proto.HTTPRequest) (*http.Request, error) {
 	return reqHTTP, nil
 }
 
-func (c *Client) toResponse(resp *http.Response) *proto.HTTPResponse {
+func (c *Client) toResponse(resp *http.Response) *cloudproxyv1alpha.HTTPResponse {
 	if resp == nil {
-		return &proto.HTTPResponse{
+		return &cloudproxyv1alpha.HTTPResponse{
 			Error: lo.ToPtr("nil response"),
 		}
 	}
-	var headers map[string]*proto.HeaderValue
+	var headers map[string]*cloudproxyv1alpha.HeaderValue
 	if resp.Header != nil {
-		headers = make(map[string]*proto.HeaderValue)
+		headers = make(map[string]*cloudproxyv1alpha.HeaderValue)
 		for h, v := range resp.Header {
-			headers[h] = &proto.HeaderValue{Value: v}
+			headers[h] = &cloudproxyv1alpha.HeaderValue{Value: v}
 		}
 	}
 	var bodyResp []byte
@@ -287,7 +307,7 @@ func (c *Client) toResponse(resp *http.Response) *proto.HTTPResponse {
 		}
 	}
 
-	return &proto.HTTPResponse{
+	return &cloudproxyv1alpha.HTTPResponse{
 		Body:    bodyResp,
 		Error:   errMessage,
 		Status:  int32(resp.StatusCode),

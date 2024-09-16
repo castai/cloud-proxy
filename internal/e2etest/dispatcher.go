@@ -4,22 +4,22 @@ import (
 	"log"
 	"sync"
 
-	proto "cloud-proxy/proto/v1alpha"
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 )
 
 type Dispatcher struct {
-	pendingRequests map[string]chan *proto.StreamCloudProxyRequest
+	pendingRequests map[string]chan *cloudproxyv1alpha.StreamCloudProxyRequest
 	locker          sync.Mutex
 
-	proxyRequestChan  chan<- *proto.StreamCloudProxyResponse
-	proxyResponseChan <-chan *proto.StreamCloudProxyRequest
+	proxyRequestChan  chan<- *cloudproxyv1alpha.StreamCloudProxyResponse
+	proxyResponseChan <-chan *cloudproxyv1alpha.StreamCloudProxyRequest
 
 	logger *log.Logger
 }
 
-func NewDispatcher(requestChan chan<- *proto.StreamCloudProxyResponse, responseChan <-chan *proto.StreamCloudProxyRequest, logger *log.Logger) *Dispatcher {
+func NewDispatcher(requestChan chan<- *cloudproxyv1alpha.StreamCloudProxyResponse, responseChan <-chan *cloudproxyv1alpha.StreamCloudProxyRequest, logger *log.Logger) *Dispatcher {
 	return &Dispatcher{
-		pendingRequests:   make(map[string]chan *proto.StreamCloudProxyRequest),
+		pendingRequests:   make(map[string]chan *cloudproxyv1alpha.StreamCloudProxyRequest),
 		locker:            sync.Mutex{},
 		proxyRequestChan:  requestChan,
 		proxyResponseChan: responseChan,
@@ -40,21 +40,21 @@ func (d *Dispatcher) Run() {
 	}()
 }
 
-func (d *Dispatcher) SendRequest(req *proto.StreamCloudProxyResponse) (<-chan *proto.StreamCloudProxyRequest, error) {
+func (d *Dispatcher) SendRequest(req *cloudproxyv1alpha.StreamCloudProxyResponse) (<-chan *cloudproxyv1alpha.StreamCloudProxyRequest, error) {
 	waiter := d.addRequestToWaitingList(req.MessageId)
 	d.proxyRequestChan <- req
 	return waiter, nil
 }
 
-func (d *Dispatcher) addRequestToWaitingList(requestID string) <-chan *proto.StreamCloudProxyRequest {
-	waiter := make(chan *proto.StreamCloudProxyRequest, 1)
+func (d *Dispatcher) addRequestToWaitingList(requestID string) <-chan *cloudproxyv1alpha.StreamCloudProxyRequest {
+	waiter := make(chan *cloudproxyv1alpha.StreamCloudProxyRequest, 1)
 	d.locker.Lock()
 	d.pendingRequests[requestID] = waiter
 	d.locker.Unlock()
 	return waiter
 }
 
-func (d *Dispatcher) findWaiterForResponse(requestID string) chan *proto.StreamCloudProxyRequest {
+func (d *Dispatcher) findWaiterForResponse(requestID string) chan *cloudproxyv1alpha.StreamCloudProxyRequest {
 	d.locker.Lock()
 	val, ok := d.pendingRequests[requestID]
 	if !ok {

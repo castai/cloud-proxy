@@ -23,6 +23,9 @@ deploy: build push
 .PHONY: deploy
 
 generate-grpc:
-	protoc proto/v1alpha/proxy.proto --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:.
+	mkdir -p proto/gen
+	protoc proto/v1alpha/proxy.proto \
+			--go_out=proto/gen --go_opt paths=source_relative  \
+			--go-grpc_out=proto/gen --go-grpc_opt paths=source_relative
 .PHONY: generate-grpc
 
