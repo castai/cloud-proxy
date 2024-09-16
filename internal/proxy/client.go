@@ -18,9 +18,7 @@ import (
 )
 
 const (
-	KeepAliveMessageID      = "keep-alive"
-	KeepAliveDefault        = 10 * time.Second
-	KeepAliveTimeoutDefault = time.Minute
+	KeepAliveMessageID = "keep-alive"
 )
 
 type CloudClient interface {
@@ -37,12 +35,13 @@ type Client struct {
 	processedCount atomic.Int64
 
 	lastSeen         atomic.Int64
+	lastseenError    string
 	keepAlive        atomic.Int64
 	keepAliveTimeout atomic.Int64
 	version          string
 }
 
-func New(grpcConn *grpc.ClientConn, cloudClient CloudClient, logger *logrus.Logger, clusterID, version string) *Client {
+func New(grpcConn *grpc.ClientConn, cloudClient CloudClient, logger *logrus.Logger, clusterID, version string, keepalive, keepaliveTimeout time.Duration) *Client {
 	c := &Client{
 		grpcConn:    grpcConn,
 		cloudClient: cloudClient,
@@ -50,8 +49,8 @@ func New(grpcConn *grpc.ClientConn, cloudClient CloudClient, logger *logrus.Logg
 		clusterID:   clusterID,
 		version:     version,
 	}
-	c.keepAlive.Store(int64(KeepAliveDefault))
-	c.keepAliveTimeout.Store(int64(KeepAliveTimeoutDefault))
+	c.keepAlive.Store(int64(keepalive))
+	c.keepAliveTimeout.Store(int64(keepaliveTimeout))
 
 	return c
 }
@@ -127,19 +126,25 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 	defer cancel()
 	go c.sendKeepAlive(ctxWithCancel, stream)
 
-	errCh := make(chan error, 1)
 	go func() {
 		for {
-			if stream.Context().Err() != nil {
+			select {
+			case <-ctx.Done():
 				return
+			case <-stream.Context().Done():
+				return
+			default:
+				if !c.isAlive() {
+					return
+				}
 			}
+
 			c.log.Debugf("Polling stream for messages")
 
 			in, err := stream.Recv()
 			if err != nil {
-				c.log.Errorf("stream.Recv: %v", err)
-				errCh <- err
-				close(errCh)
+				c.log.Errorf("stream.Recv: received error: %v", err)
+				c.lastSeen.Store(0)
 				return
 			}
 
@@ -154,9 +159,7 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 			return ctx.Err()
 		case <-stream.Context().Done():
 			return fmt.Errorf("stream closed")
-		case err := <-errCh:
-			return fmt.Errorf("error: %w", err)
-		case <-time.After(time.Duration(c.keepAliveTimeout.Load())):
+		case <-time.After(time.Duration(c.keepAlive.Load())):
 			if !c.isAlive() {
 				return fmt.Errorf("last seen too old, closing stream")
 			}
@@ -251,15 +254,18 @@ func (c *Client) sendKeepAlive(ctx context.Context, stream cloudproxyv1alpha.Clo
 
 	c.log.Info("Starting keep-alive loop")
 	for {
-		if !c.isAlive() {
-			c.log.Info("Stopping keep-alive loop: client connection is not alive")
-			return
-		}
 		select {
 		case <-ctx.Done():
 			c.log.Infof("Stopping keep-alive loop: context ended with %v", context.Cause(ctx))
 			return
+		case <-stream.Context().Done():
+			c.log.Infof("Stopping keep-alive loop: stream ended with %v", stream.Context().Err())
+			return
 		case <-ticker.C:
+			if !c.isAlive() {
+				c.log.Info("Stopping keep-alive loop: client connection is not alive")
+				return
+			}
 			c.log.Debug("Sending keep-alive to castai")
 			err := stream.Send(&cloudproxyv1alpha.StreamCloudProxyRequest{
 				Request: &cloudproxyv1alpha.StreamCloudProxyRequest_ClientStats{
