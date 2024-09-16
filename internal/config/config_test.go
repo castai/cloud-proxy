@@ -45,6 +45,8 @@ func TestConfig(t *testing.T) {
 		Log: Log{
 			Level: 3,
 		},
+		KeepAlive:        KeepAliveDefault,
+		KeepAliveTimeout: KeepAliveTimeoutDefault,
 	}
 
 	got := Get()
