@@ -148,7 +148,7 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 		if !c.isAlive() {
 			return fmt.Errorf("last seen too old, closing stream")
 		}
-		time.Sleep(time.Duration(c.keepAliveTimeout.Load()))
+		time.Sleep(time.Duration(c.keepAliveTimeout.Load() / 2))
 	}
 }
 
