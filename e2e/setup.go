@@ -9,9 +9,9 @@ import (
 	"net/http"
 
 	"cloud-proxy/internal/e2etest"
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 	compute "cloud.google.com/go/compute/apiv1"
 	container "cloud.google.com/go/container/apiv1"
-	cloudproxyv1alpha "github.com/castai/cloud-proxy/proto/gen/proto/v1alpha"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"

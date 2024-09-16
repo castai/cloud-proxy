@@ -3,9 +3,9 @@ package proxy
 import (
 	"bytes"
 	mock_proxy "cloud-proxy/internal/proxy/mock"
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 	"context"
 	"fmt"
-	cloudproxyv1alpha "github.com/castai/cloud-proxy/proto/gen/proto/v1alpha"
 	"github.com/golang/mock/gomock"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -457,6 +457,7 @@ func TestClient_run(t *testing.T) {
 				},
 			},
 			wantLastSeenUpdated: true,
+			wantErr:             true,
 		},
 	}
 	for _, tt := range tests {

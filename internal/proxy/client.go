@@ -1,13 +1,13 @@
 //go:generate mockgen -package=mock_proxy -source $GOFILE -destination mock/$GOFILE .
-//go:generate mockgen -package=mock_proxy -destination mock/stream.go github.com/castai/cloud-proxy/proto/gen/proto/v1alpha CloudProxyAPI_StreamCloudProxyClient
+//go:generate mockgen -package=mock_proxy -destination mock/stream.go cloud-proxy/proto/gen/proto/v1alpha CloudProxyAPI_StreamCloudProxyClient
 
 package proxy
 
 import (
 	"bytes"
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 	"context"
 	"fmt"
-	cloudproxyv1alpha "github.com/castai/cloud-proxy/proto/gen/proto/v1alpha"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"

@@ -4,7 +4,7 @@ import (
 	"log"
 	"sync"
 
-	cloudproxyv1alpha "github.com/castai/cloud-proxy/proto/gen/proto/v1alpha"
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 )
 
 type Dispatcher struct {

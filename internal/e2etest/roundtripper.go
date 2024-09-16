@@ -2,8 +2,8 @@ package e2etest
 
 import (
 	"bytes"
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 	"fmt"
-	cloudproxyv1alpha "github.com/castai/cloud-proxy/proto/gen/proto/v1alpha"
 	"io"
 	"log"
 	"net/http"
