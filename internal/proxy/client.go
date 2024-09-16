@@ -129,6 +129,9 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 
 	go func() {
 		for {
+			if stream.Context().Err() != nil {
+				return
+			}
 			c.log.Debugf("Polling stream for messages")
 
 			in, err := stream.Recv()
@@ -142,13 +145,16 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 	}()
 
 	for {
-		if ctx.Err() != nil {
+		select {
+		case <-ctx.Done():
 			return ctx.Err()
+		case <-stream.Context().Done():
+			return fmt.Errorf("stream closed")
+		case <-time.After(time.Duration(c.keepAliveTimeout.Load())):
+			if !c.isAlive() {
+				return fmt.Errorf("last seen too old, closing stream")
+			}
 		}
-		if !c.isAlive() {
-			return fmt.Errorf("last seen too old, closing stream")
-		}
-		time.Sleep(time.Duration(c.keepAliveTimeout.Load() / 2))
 	}
 }
 
