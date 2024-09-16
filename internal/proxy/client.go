@@ -127,6 +127,20 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 	defer cancel()
 	go c.sendKeepAlive(ctxWithCancel, stream)
 
+	go func() {
+		for {
+			c.log.Debugf("Polling stream for messages")
+
+			in, err := stream.Recv()
+			if err != nil {
+				c.log.Errorf("stream.Recv: %v", err)
+			}
+
+			c.log.Debugf("Handling message from castai")
+			go c.handleMessage(in, stream)
+		}
+	}()
+
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -134,14 +148,7 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 		if !c.isAlive() {
 			return fmt.Errorf("last seen too old, closing stream")
 		}
-		c.log.Info("Polling stream for messages")
-		in, err := stream.Recv()
-		if err != nil {
-			return fmt.Errorf("stream.Recv: %w", err)
-		}
-
-		c.log.Info("Handling message from castai")
-		go c.handleMessage(in, stream)
+		time.Sleep(time.Duration(c.keepAliveTimeout.Load()))
 	}
 }
 
