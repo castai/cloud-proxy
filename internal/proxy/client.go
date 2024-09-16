@@ -218,7 +218,7 @@ func (c *Client) sendKeepAlive(ctx context.Context, stream StreamCloudProxyClien
 		}
 		select {
 		case <-ctx.Done():
-			c.log.Info("Stopping keep-alive loop: context ended with %v", context.Cause(ctx))
+			c.log.Infof("Stopping keep-alive loop: context ended with %v", context.Cause(ctx))
 			return
 		case <-ticker.C:
 			c.log.Debug("Sending keep-alive to castai")
