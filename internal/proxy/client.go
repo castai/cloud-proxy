@@ -8,16 +8,15 @@ import (
 
 	"context"
 	"fmt"
+	"google.golang.org/grpc"
 	"io"
 	"net/http"
 	"sync/atomic"
 	"time"
 
 	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
-
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 const (

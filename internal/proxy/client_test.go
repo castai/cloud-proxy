@@ -2,21 +2,22 @@ package proxy
 
 import (
 	"bytes"
-	"cloud-proxy/internal/config"
-	mock_proxy "cloud-proxy/internal/proxy/mock"
-	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 	"context"
 	"fmt"
-	"github.com/golang/mock/gomock"
-	"github.com/samber/lo"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/url"
 	"reflect"
 	"testing"
 	"time"
+
+	"cloud-proxy/internal/config"
+	mock_proxy "cloud-proxy/internal/proxy/mock"
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
+	"github.com/golang/mock/gomock"
+	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 )
 
 type mockReadCloserErr struct{}

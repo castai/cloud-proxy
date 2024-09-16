@@ -3,6 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"net/http"
 	"path"
 	"runtime"
@@ -12,13 +17,7 @@ import (
 	"cloud-proxy/internal/cloud/gcp/gcpauth"
 	"cloud-proxy/internal/config"
 	"cloud-proxy/internal/proxy"
-
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/backoff"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 )
 
 var (
