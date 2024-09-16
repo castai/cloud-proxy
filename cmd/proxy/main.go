@@ -28,6 +28,7 @@ var (
 )
 
 func main() {
+	logrus.Info("Starting proxy")
 	cfg := config.Get()
 
 	logger := logrus.New()
@@ -44,17 +45,9 @@ func main() {
 		"GitCommit": GitCommit,
 		"GitRef":    GitRef,
 		"Version":   Version,
-	}).Println("Starting cloud-proxy")
+	}).Info("Starting cloud-proxy")
 
 	dialOpts := make([]grpc.DialOption, 0)
-	dialOpts = append(dialOpts, grpc.WithConnectParams(grpc.ConnectParams{
-		Backoff: backoff.Config{
-			BaseDelay:  2 * time.Second,
-			Jitter:     0.1,
-			MaxDelay:   5 * time.Second,
-			Multiplier: 1.2,
-		},
-	}))
 	if cfg.CastAI.DisableGRPCTLS {
 		// ONLY For testing purposes
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -62,15 +55,34 @@ func main() {
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
 	}
 
+	connectParams := grpc.ConnectParams{
+		Backoff: backoff.Config{
+			BaseDelay:  2 * time.Second,
+			Jitter:     0.1,
+			MaxDelay:   5 * time.Second,
+			Multiplier: 1.2,
+		},
+	}
+	dialOpts = append(dialOpts, grpc.WithConnectParams(connectParams))
+
+	logger.Infof(
+		"Creating grpc channel against (%s) with connection config (%v) and TLS enabled=%v",
+		cfg.CastAI.GrpcURL,
+		connectParams,
+		!cfg.CastAI.DisableGRPCTLS,
+	)
 	conn, err := grpc.NewClient(cfg.CastAI.GrpcURL, dialOpts...)
 	if err != nil {
 		logger.Panicf("Failed to connect to server: %v", err)
+		panic(err)
 	}
 
 	defer func(conn *grpc.ClientConn) {
+		logger.Info("Closing grpc connection")
 		err := conn.Close()
 		if err != nil {
 			logger.Panicf("Failed to close gRPC connection: %v", err)
+			panic(err)
 		}
 	}(conn)
 
@@ -81,7 +93,8 @@ func main() {
 	client := proxy.New(conn, gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger, cfg.ClusterID, GetVersion())
 	err = client.Run(ctx)
 	if err != nil {
-		logger.Errorf("Failed to run client: %v", err)
+		logger.Panicf("Failed to run client: %v", err)
+		panic(err)
 	}
 }
 

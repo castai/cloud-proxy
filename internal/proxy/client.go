@@ -61,6 +61,7 @@ func (c *Client) Run(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return nil
 		}
+		c.log.Info("Starting proxy client")
 		stream, closeStream, err := c.getStream()
 		if err != nil {
 			c.log.Errorf("c.getStream: %v", err)
@@ -69,18 +70,20 @@ func (c *Client) Run(ctx context.Context) error {
 		}
 		err = c.run(ctx, stream, closeStream)
 		if err != nil {
-			c.log.Errorf("c.run: %v", err)
+			c.log.Errorf("c.run exited: %v", err)
 		}
 	}
 }
 
 func (c *Client) getStream() (cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient, func(), error) {
+	c.log.Info("Connecting to castai")
 	apiClient := cloudproxyv1alpha.NewCloudProxyAPIClient(c.grpcConn)
 	stream, err := apiClient.StreamCloudProxy(context.Background())
 	if err != nil {
 		return nil, nil, fmt.Errorf("proxyCastAIClient.StreamCloudProxy: %w", err)
 	}
 
+	c.log.Info("Connected to castai, sending initial metadata")
 	return stream, func() {
 		err := stream.CloseSend()
 		if err != nil {
@@ -107,6 +110,8 @@ func (c *Client) sendInitialRequest(stream cloudproxyv1alpha.CloudProxyAPI_Strea
 	}
 	c.lastSeen.Store(time.Now().UnixNano())
 
+	c.log.Info("Stream to castai started successfully")
+
 	return nil
 }
 
@@ -129,11 +134,13 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 		if !c.isAlive() {
 			return fmt.Errorf("last seen too old, closing stream")
 		}
+		c.log.Info("Polling stream for messages")
 		in, err := stream.Recv()
 		if err != nil {
 			return fmt.Errorf("stream.Recv: %w", err)
 		}
 
+		c.log.Info("Handling message from castai")
 		go c.handleMessage(in, stream)
 	}
 }
@@ -148,10 +155,17 @@ func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, s
 	// skip processing http request if keep alive message
 	if in.GetMessageId() == KeepAliveMessageID {
 		c.lastSeen.Store(time.Now().UnixNano())
+		c.log.Debugf("Received keep-alive message from castai for %s", in.GetClientMetadata().GetClusterId())
 		return
 	}
 
+	c.log.Debugf("Received request for proxying msg_id=%v from castai", in.GetMessageId())
 	resp := c.processHttpRequest(in.GetHttpRequest())
+	if resp.GetError() != "" {
+		c.log.Errorf("Failed to proxy request msg_id=%v with %v", in.GetMessageId(), resp.GetError())
+	} else {
+		c.log.Debugf("Proxied request msg_id=%v, sending response to castai", in.GetMessageId())
+	}
 	err := stream.Send(&cloudproxyv1alpha.StreamCloudProxyRequest{
 		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_Response{
 			Response: &cloudproxyv1alpha.ClusterResponse{
@@ -216,14 +230,18 @@ func (c *Client) sendKeepAlive(ctx context.Context, stream cloudproxyv1alpha.Clo
 	ticker := time.NewTimer(time.Duration(c.keepAlive.Load()))
 	defer ticker.Stop()
 
+	c.log.Info("Starting keep-alive loop")
 	for {
 		if !c.isAlive() {
+			c.log.Info("Stopping keep-alive loop: client connection is not alive")
 			return
 		}
 		select {
 		case <-ctx.Done():
+			c.log.Infof("Stopping keep-alive loop: context ended with %v", context.Cause(ctx))
 			return
 		case <-ticker.C:
+			c.log.Debug("Sending keep-alive to castai")
 			err := stream.Send(&cloudproxyv1alpha.StreamCloudProxyRequest{
 				Request: &cloudproxyv1alpha.StreamCloudProxyRequest_ClientStats{
 					ClientStats: &cloudproxyv1alpha.ClientStats{
