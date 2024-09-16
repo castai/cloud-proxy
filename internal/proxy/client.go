@@ -35,7 +35,7 @@ type Client struct {
 	processedCount atomic.Int64
 
 	lastSeen         atomic.Int64
-	lastseenError    string
+	lastSeenError    atomic.Pointer[error]
 	keepAlive        atomic.Int64
 	keepAliveTimeout atomic.Int64
 	version          string
@@ -56,20 +56,25 @@ func New(grpcConn *grpc.ClientConn, cloudClient CloudClient, logger *logrus.Logg
 }
 
 func (c *Client) Run(ctx context.Context) error {
+	t := time.NewTimer(time.Millisecond)
+
 	for {
-		if ctx.Err() != nil {
-			return nil
-		}
-		c.log.Info("Starting proxy client")
-		stream, closeStream, err := c.getStream()
-		if err != nil {
-			c.log.Errorf("c.getStream: %v", err)
-			time.Sleep(time.Second)
-			continue
-		}
-		err = c.run(ctx, stream, closeStream)
-		if err != nil {
-			c.log.Errorf("c.run exited: %v", err)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.C:
+			c.log.Info("Starting proxy client")
+			stream, closeStream, err := c.getStream()
+			if err != nil {
+				c.log.Errorf("Could not get stream, restarting proxy client in %vs: %v", time.Duration(c.keepAlive.Load()).Seconds(), err)
+				t.Reset(time.Duration(c.keepAlive.Load()))
+				continue
+			}
+			err = c.run(ctx, stream, closeStream)
+			if err != nil {
+				c.log.Errorf("Restarting proxy client in %vs: due to error: %v", time.Duration(c.keepAlive.Load()).Seconds(), err)
+				t.Reset(time.Duration(c.keepAlive.Load()))
+			}
 		}
 	}
 }
@@ -108,6 +113,7 @@ func (c *Client) sendInitialRequest(stream cloudproxyv1alpha.CloudProxyAPI_Strea
 		return fmt.Errorf("stream.Send: initial request %w", err)
 	}
 	c.lastSeen.Store(time.Now().UnixNano())
+	c.lastSeenError.Store(nil)
 
 	c.log.Info("Stream to castai started successfully")
 
@@ -122,9 +128,7 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 		return fmt.Errorf("c.Connect: %w", err)
 	}
 
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go c.sendKeepAlive(ctxWithCancel, stream)
+	go c.sendKeepAlive(stream)
 
 	go func() {
 		for {
@@ -143,8 +147,9 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 
 			in, err := stream.Recv()
 			if err != nil {
-				c.log.Errorf("stream.Recv: received error: %v", err)
+				c.log.Errorf("stream.Recv: got error: %v", err)
 				c.lastSeen.Store(0)
+				c.lastSeenError.Store(&err)
 				return
 			}
 
@@ -161,6 +166,10 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 			return fmt.Errorf("stream closed")
 		case <-time.After(time.Duration(c.keepAlive.Load())):
 			if !c.isAlive() {
+				if c.lastSeenError.Load() != nil {
+					err := c.lastSeenError.Load()
+					return fmt.Errorf("recived error: %w", *err)
+				}
 				return fmt.Errorf("last seen too old, closing stream")
 			}
 		}
@@ -248,16 +257,13 @@ func (c *Client) isAlive() bool {
 	return true
 }
 
-func (c *Client) sendKeepAlive(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient) {
+func (c *Client) sendKeepAlive(stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient) {
 	ticker := time.NewTimer(time.Duration(c.keepAlive.Load()))
 	defer ticker.Stop()
 
 	c.log.Info("Starting keep-alive loop")
 	for {
 		select {
-		case <-ctx.Done():
-			c.log.Infof("Stopping keep-alive loop: context ended with %v", context.Cause(ctx))
-			return
 		case <-stream.Context().Done():
 			c.log.Infof("Stopping keep-alive loop: stream ended with %v", stream.Context().Err())
 			return

@@ -50,7 +50,7 @@ func main() {
 	dialOpts = append(dialOpts, grpc.WithConnectParams(connectParams))
 
 	logger.Infof(
-		"Creating grpc channel against (%s) with connection config (%v) and TLS enabled=%v",
+		"Creating grpc channel against (%s) with connection config (%+v) and TLS enabled=%v",
 		cfg.CastAI.GrpcURL,
 		connectParams,
 		!cfg.CastAI.DisableGRPCTLS,
