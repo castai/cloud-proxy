@@ -47,6 +47,7 @@ func TestConfig(t *testing.T) {
 		},
 		KeepAlive:        KeepAliveDefault,
 		KeepAliveTimeout: KeepAliveTimeoutDefault,
+		HealthAddress:    HealthAddressDefault,
 	}
 
 	got := Get()

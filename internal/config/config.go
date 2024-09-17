@@ -11,6 +11,7 @@ import (
 const (
 	KeepAliveDefault        = 10 * time.Second
 	KeepAliveTimeoutDefault = time.Minute
+	HealthAddressDefault    = ":9091"
 )
 
 type Config struct {
@@ -121,7 +122,7 @@ func Get() Config {
 	}
 
 	if cfg.HealthAddress == "" {
-		cfg.HealthAddress = ":9091"
+		cfg.HealthAddress = HealthAddressDefault
 	}
 
 	return *cfg
