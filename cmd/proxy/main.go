@@ -19,7 +19,6 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -51,7 +50,6 @@ func main() {
 		},
 	}
 	dialOpts = append(dialOpts, grpc.WithConnectParams(connectParams))
-	dialOpts = append(dialOpts, grpc.WithKeepaliveParams(keepalive.ClientParameters{}))
 
 	logger.Infof(
 		"Creating grpc channel against (%s) with connection config (%+v) and TLS enabled=%v",
