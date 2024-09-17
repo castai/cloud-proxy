@@ -11,6 +11,7 @@ import (
 	"cloud-proxy/internal/cloud/gcp"
 	"cloud-proxy/internal/cloud/gcp/gcpauth"
 	"cloud-proxy/internal/config"
+	"cloud-proxy/internal/healthz"
 	"cloud-proxy/internal/proxy"
 
 	"github.com/sirupsen/logrus"
@@ -18,6 +19,7 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -49,6 +51,7 @@ func main() {
 		},
 	}
 	dialOpts = append(dialOpts, grpc.WithConnectParams(connectParams))
+	dialOpts = append(dialOpts, grpc.WithKeepaliveParams(keepalive.ClientParameters{}))
 
 	logger.Infof(
 		"Creating grpc channel against (%s) with connection config (%+v) and TLS enabled=%v",
@@ -77,6 +80,17 @@ func main() {
 
 	client := proxy.New(conn, gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger,
 		cfg.ClusterID, GetVersion(), cfg.KeepAlive, cfg.KeepAliveTimeout)
+
+	go func() {
+		healthchecks := healthz.NewServer(logger, client)
+
+		logger.Infof("Starting healthcheck server on address %v", cfg.HealthAddress)
+
+		if err := healthchecks.Run(cfg.HealthAddress); err != nil {
+			logger.WithError(err).Errorf("Failed to run healthcheck server")
+		}
+	}()
+
 	err = client.Run(ctx)
 	if err != nil {
 		logger.Panicf("Failed to run client: %v", err)

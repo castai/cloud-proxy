@@ -22,8 +22,8 @@ type Config struct {
 	PodMetadata PodMetadata `mapstructure:"podmetadata"`
 
 	//MetricsAddress  string               `mapstructure:"metricsaddress"`
-	//HealthAddress   string               `mapstructure:"healthaddress"`
-	Log Log `mapstructure:"log"`
+	HealthAddress string `mapstructure:"healthaddress"`
+	Log           Log    `mapstructure:"log"`
 }
 
 // PodMetadata stores metadata for the pod, mostly used for logging and debugging purposes.
@@ -85,6 +85,8 @@ func Get() Config {
 
 	_ = v.BindEnv("log.level", "LOG_LEVEL")
 
+	_ = v.BindEnv("healthaddress", "HEALTH_ADDRESS")
+
 	cfg = &Config{}
 	if err := v.Unmarshal(cfg); err != nil {
 		panic(fmt.Errorf("while parsing config: %w", err))
@@ -116,6 +118,10 @@ func Get() Config {
 		} else {
 			cfg.KeepAliveTimeout = cfg.KeepAlive * 4
 		}
+	}
+
+	if cfg.HealthAddress == "" {
+		cfg.HealthAddress = ":9091"
 	}
 
 	return *cfg
