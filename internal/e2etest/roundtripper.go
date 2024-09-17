@@ -2,11 +2,12 @@ package e2etest
 
 import (
 	"bytes"
-	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 
 	"github.com/google/uuid"
 )

@@ -2,14 +2,23 @@ package config
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
+const (
+	KeepAliveDefault        = 10 * time.Second
+	KeepAliveTimeoutDefault = time.Minute
+)
+
 type Config struct {
-	CastAI      CastAPI     `mapstructure:"cast"`
-	ClusterID   string      `mapstructure:"clusterid"`
+	CastAI           CastAPI       `mapstructure:"cast"`
+	ClusterID        string        `mapstructure:"clusterid"`
+	KeepAlive        time.Duration `mapstructure:"keepalive"`
+	KeepAliveTimeout time.Duration `mapstructure:"keepalivetimeout"`
+
 	PodMetadata PodMetadata `mapstructure:"podmetadata"`
 
 	//MetricsAddress  string               `mapstructure:"metricsaddress"`
@@ -71,6 +80,9 @@ func Get() Config {
 	v.MustBindEnv("podmetadata.nodename", "NODE_NAME")
 	v.MustBindEnv("podmetadata.podname", "POD_NAME")
 
+	_ = v.BindEnv("keepalive", "KEEP_ALIVE")
+	_ = v.BindEnv("keepalivetimeout", "KEEP_ALIVE_TIMEOUT")
+
 	_ = v.BindEnv("log.level", "LOG_LEVEL")
 
 	cfg = &Config{}
@@ -93,6 +105,17 @@ func Get() Config {
 
 	if cfg.Log.Level == 0 {
 		cfg.Log.Level = int(logrus.InfoLevel)
+	}
+
+	if cfg.KeepAlive == 0 {
+		cfg.KeepAlive = KeepAliveDefault
+	}
+	if cfg.KeepAliveTimeout == 0 {
+		if cfg.KeepAlive < KeepAliveTimeoutDefault {
+			cfg.KeepAliveTimeout = KeepAliveTimeoutDefault
+		} else {
+			cfg.KeepAliveTimeout = cfg.KeepAlive * 4
+		}
 	}
 
 	return *cfg

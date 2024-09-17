@@ -1,8 +1,6 @@
 package main
 
 import (
-	"cloud-proxy/internal/cloud/gcp"
-	"cloud-proxy/internal/cloud/gcp/gcpauth"
 	"context"
 	"fmt"
 	"net/http"
@@ -10,15 +8,17 @@ import (
 	"runtime"
 	"time"
 
+	"cloud-proxy/internal/cloud/gcp"
+	"cloud-proxy/internal/cloud/gcp/gcpauth"
+	"cloud-proxy/internal/config"
+	"cloud-proxy/internal/proxy"
+
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
-
-	"cloud-proxy/internal/config"
-	"cloud-proxy/internal/proxy"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -30,22 +30,7 @@ var (
 func main() {
 	logrus.Info("Starting proxy")
 	cfg := config.Get()
-
-	logger := logrus.New()
-	logger.SetLevel(logrus.Level(cfg.Log.Level))
-	logger.SetReportCaller(true)
-	logger.Formatter = &logrus.TextFormatter{
-		CallerPrettyfier: func(f *runtime.Frame) (function string, file string) {
-			filename := path.Base(f.File)
-			return fmt.Sprintf("%s()", f.Function), fmt.Sprintf("%s:%d", filename, f.Line)
-		},
-	}
-
-	logger.WithFields(logrus.Fields{
-		"GitCommit": GitCommit,
-		"GitRef":    GitRef,
-		"Version":   Version,
-	}).Info("Starting cloud-proxy")
+	logger := setupLogger(cfg)
 
 	dialOpts := make([]grpc.DialOption, 0)
 	if cfg.CastAI.DisableGRPCTLS {
@@ -66,7 +51,7 @@ func main() {
 	dialOpts = append(dialOpts, grpc.WithConnectParams(connectParams))
 
 	logger.Infof(
-		"Creating grpc channel against (%s) with connection config (%v) and TLS enabled=%v",
+		"Creating grpc channel against (%s) with connection config (%+v) and TLS enabled=%v",
 		cfg.CastAI.GrpcURL,
 		connectParams,
 		!cfg.CastAI.DisableGRPCTLS,
@@ -90,7 +75,8 @@ func main() {
 		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.ApiKey),
 	))
 
-	client := proxy.New(conn, gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger, cfg.ClusterID, GetVersion())
+	client := proxy.New(conn, gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger,
+		cfg.ClusterID, GetVersion(), cfg.KeepAlive, cfg.KeepAliveTimeout)
 	err = client.Run(ctx)
 	if err != nil {
 		logger.Panicf("Failed to run client: %v", err)
@@ -100,4 +86,26 @@ func main() {
 
 func GetVersion() string {
 	return fmt.Sprintf("GitCommit=%q GitRef=%q Version=%q", GitCommit, GitRef, Version)
+}
+
+func setupLogger(cfg config.Config) *logrus.Logger {
+	logger := logrus.New()
+	logger.SetLevel(logrus.Level(cfg.Log.Level))
+	logger.SetReportCaller(true)
+	logger.Formatter = &logrus.TextFormatter{
+		CallerPrettyfier: func(f *runtime.Frame) (function string, file string) {
+			filename := path.Base(f.File)
+			return fmt.Sprintf("%s()", f.Function), fmt.Sprintf("%s:%d", filename, f.Line)
+		},
+		TimestampFormat: time.RFC3339,
+		FullTimestamp:   true,
+	}
+
+	logger.WithFields(logrus.Fields{
+		"GitCommit": GitCommit,
+		"GitRef":    GitRef,
+		"Version":   Version,
+	}).Infof("Starting cloud-proxy: %+v", cfg)
+
+	return logger
 }
