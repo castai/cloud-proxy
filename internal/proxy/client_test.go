@@ -447,6 +447,21 @@ func TestClient_run(t *testing.T) {
 			wantLastSeenUpdated: true,
 			wantErr:             true,
 		},
+		{
+			name: "stream not alive",
+			args: args{
+				ctx: func() context.Context {
+					return context.Background()
+				},
+				tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
+					m.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()         // expected 0 or 1 times
+					m.EXPECT().Context().Return(context.Background()).AnyTimes() // expected 0 or 1 times
+					m.EXPECT().Recv().Return(nil, fmt.Errorf("test error"))
+				},
+			},
+			wantLastSeenUpdated: false,
+			wantErr:             true,
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -455,7 +470,7 @@ func TestClient_run(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			c := New(nil, nil, logrus.New(), "clusterID", "version", time.Second, time.Minute)
+			c := New(nil, nil, logrus.New(), "clusterID", "version", time.Second, time.Second)
 			stream := mock_proxy.NewMockCloudProxyAPI_StreamCloudProxyClient(ctrl)
 			if tt.args.tuneMockStream != nil {
 				tt.args.tuneMockStream(stream)

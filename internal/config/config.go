@@ -80,8 +80,8 @@ func Get() Config {
 	v.MustBindEnv("podmetadata.nodename", "NODE_NAME")
 	v.MustBindEnv("podmetadata.podname", "POD_NAME")
 
-	v.MustBindEnv("keepalive", "KEEP_ALIVE")
-	v.MustBindEnv("keepalivetimeout", "KEEP_ALIVE_TIMEOUT")
+	_ = v.BindEnv("keepalive", "KEEP_ALIVE")
+	_ = v.BindEnv("keepalivetimeout", "KEEP_ALIVE_TIMEOUT")
 
 	_ = v.BindEnv("log.level", "LOG_LEVEL")
 

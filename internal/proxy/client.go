@@ -165,11 +165,10 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-stream.Context().Done():
-			return fmt.Errorf("stream closed")
+			return fmt.Errorf("stream closed %w", stream.Context().Err())
 		case <-time.After(time.Duration(c.keepAlive.Load())):
 			if !c.isAlive() {
-				if c.lastSeenError.Load() != nil {
-					err := c.lastSeenError.Load()
+				if err := c.lastSeenError.Load(); err != nil {
 					return fmt.Errorf("recived error: %w", *err)
 				}
 				return fmt.Errorf("last seen too old, closing stream")
