@@ -42,6 +42,7 @@ linters-settings:
   godot:
     scope: all
   gofumpt:
+    module-path: cloud-proxy
     extra-rules: true
   goconst:
     min-len: 2
@@ -87,7 +88,6 @@ linters-settings:
       - default
       - prefix(cloud-proxy)
 issues:
-  fix: true
   exclude-dirs:
     - mock
     - internal/castai
