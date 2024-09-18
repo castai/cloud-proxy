@@ -7,19 +7,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type ProxyClient interface {
-	IsAlive() bool
-}
-
 type Server struct {
-	log         *logrus.Logger
-	proxyClient ProxyClient
+	log *logrus.Logger
 }
 
-func NewServer(log *logrus.Logger, proxyClient ProxyClient) *Server {
+func NewServer(log *logrus.Logger) *Server {
 	return &Server{
-		log:         log,
-		proxyClient: proxyClient,
+		log: log,
 	}
 }
 
@@ -32,17 +26,11 @@ func (hc *Server) Run(addr string) error {
 }
 
 func (hc *Server) healthCheck(w http.ResponseWriter, r *http.Request) {
-	status := true
-	response := make(map[string]string)
-
-	if hc.proxyClient.IsAlive() {
-		response["proxyClient"] = "alive"
-	} else {
-		response["proxyClient"] = "not alive"
-		status = false
-	}
-
 	w.Header().Set("content-type", "application/json")
+
+	response := map[string]string{
+		"status": "ok",
+	}
 
 	body, err := json.Marshal(response)
 	if err != nil {
@@ -51,11 +39,7 @@ func (hc *Server) healthCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if status {
-		w.WriteHeader(http.StatusOK)
-	} else {
-		w.WriteHeader(http.StatusServiceUnavailable)
-	}
+	w.WriteHeader(http.StatusOK)
 
 	if _, err := w.Write(body); err != nil {
 		hc.log.WithError(err).Errorf("Failed to write response body")

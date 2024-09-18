@@ -115,7 +115,7 @@ func (c *Client) sendInitialRequest(stream cloudproxyv1alpha.CloudProxyAPI_Strea
 	if err != nil {
 		return fmt.Errorf("stream.Send: initial request %w", err)
 	}
-
+	c.lastSeen.Store(time.Now().UnixNano())
 	c.lastSeenError.Store(nil)
 
 	c.log.Info("Stream to castai started successfully")
@@ -141,6 +141,9 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 			case <-stream.Context().Done():
 				return
 			default:
+				if !c.isAlive() {
+					return
+				}
 			}
 
 			c.log.Debugf("Polling stream for messages")
@@ -165,7 +168,7 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 		case <-stream.Context().Done():
 			return fmt.Errorf("stream closed %w", stream.Context().Err())
 		case <-time.After(time.Duration(c.keepAlive.Load())):
-			if !c.IsAlive() {
+			if !c.isAlive() {
 				if err := c.lastSeenError.Load(); err != nil {
 					return fmt.Errorf("recived error: %w", *err)
 				}
@@ -247,7 +250,7 @@ func (c *Client) processHttpRequest(req *cloudproxyv1alpha.HTTPRequest) *cloudpr
 	return c.toResponse(resp)
 }
 
-func (c *Client) IsAlive() bool {
+func (c *Client) isAlive() bool {
 	lastSeen := c.lastSeen.Load()
 	return time.Now().UnixNano()-lastSeen <= c.keepAliveTimeout.Load()
 }
@@ -263,7 +266,7 @@ func (c *Client) sendKeepAlive(stream cloudproxyv1alpha.CloudProxyAPI_StreamClou
 			c.log.Infof("Stopping keep-alive loop: stream ended with %v", stream.Context().Err())
 			return
 		case <-ticker.C:
-			if !c.IsAlive() {
+			if !c.isAlive() {
 				c.log.Info("Stopping keep-alive loop: client connection is not alive")
 				return
 			}

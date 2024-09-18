@@ -80,7 +80,7 @@ func main() {
 		cfg.ClusterID, GetVersion(), cfg.KeepAlive, cfg.KeepAliveTimeout)
 
 	go func() {
-		healthchecks := healthz.NewServer(logger, client)
+		healthchecks := healthz.NewServer(logger)
 
 		logger.Infof("Starting healthcheck server on address %v", cfg.HealthAddress)
 
