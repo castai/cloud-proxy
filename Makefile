@@ -33,6 +33,10 @@ lint:
 	golangci-lint run ./...
 .PHONY: lint
 
+fix:
+	golangci-lint run --fix ./...
+.PHONY: fix
+
 test:
 	go test ./... -race
 .PHONY: test

@@ -87,7 +87,7 @@ linters-settings:
       - default
       - prefix(cloud-proxy)
 issues:
-  fix: true
+  fix: false
   exclude-dirs:
     - mock
     - internal/castai
