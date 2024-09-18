@@ -29,6 +29,8 @@ func (hc *Server) Run(addr string) error {
 func (hc *Server) readyCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 
+	// TODO: Implement proper readiness checks.
+
 	response := map[string]string{
 		"status": "ok",
 	}
@@ -49,6 +51,8 @@ func (hc *Server) readyCheck(w http.ResponseWriter, r *http.Request) {
 
 func (hc *Server) liveCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
+
+	// TODO: Implement proper liveness checks.
 
 	response := map[string]string{
 		"status": "ok",
