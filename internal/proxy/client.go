@@ -68,12 +68,13 @@ func (c *Client) Run(ctx context.Context) error {
 			return ctx.Err()
 		case <-t.C:
 			c.log.Info("Starting proxy client")
-			stream, closeStream, err := c.getStream()
+			stream, closeStream, err := c.getStream(ctx)
 			if err != nil {
 				c.log.Errorf("Could not get stream, restarting proxy client in %vs: %v", time.Duration(c.keepAlive.Load()).Seconds(), err)
 				t.Reset(time.Duration(c.keepAlive.Load()))
 				continue
 			}
+
 			err = c.run(ctx, stream, closeStream)
 			if err != nil {
 				c.log.Errorf("Restarting proxy client in %vs: due to error: %v", time.Duration(c.keepAlive.Load()).Seconds(), err)
@@ -83,10 +84,10 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 }
 
-func (c *Client) getStream() (cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient, func(), error) {
+func (c *Client) getStream(ctx context.Context) (cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient, func(), error) {
 	c.log.Info("Connecting to castai")
 	apiClient := cloudproxyv1alpha.NewCloudProxyAPIClient(c.grpcConn)
-	stream, err := apiClient.StreamCloudProxy(context.Background())
+	stream, err := apiClient.StreamCloudProxy(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("proxyCastAIClient.StreamCloudProxy: %w", err)
 	}

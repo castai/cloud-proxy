@@ -11,6 +11,7 @@ import (
 const (
 	KeepAliveDefault        = 10 * time.Second
 	KeepAliveTimeoutDefault = time.Minute
+	HealthAddressDefault    = ":9091"
 )
 
 type Config struct {
@@ -22,7 +23,7 @@ type Config struct {
 	PodMetadata PodMetadata `mapstructure:"podmetadata"`
 
 	// MetricsAddress  string               `mapstructure:"metricsaddress"`
-	// HealthAddress   string               `mapstructure:"healthaddress"`.
+	HealthAddress string `mapstructure:"healthaddress"`
 	Log Log `mapstructure:"log"`
 }
 
@@ -85,6 +86,8 @@ func Get() Config {
 
 	_ = v.BindEnv("log.level", "LOG_LEVEL")
 
+	_ = v.BindEnv("healthaddress", "HEALTH_ADDRESS")
+
 	cfg = &Config{}
 	if err := v.Unmarshal(cfg); err != nil {
 		panic(fmt.Errorf("while parsing config: %w", err))
@@ -116,6 +119,10 @@ func Get() Config {
 		} else {
 			cfg.KeepAliveTimeout = cfg.KeepAlive * 4
 		}
+	}
+
+	if cfg.HealthAddress == "" {
+		cfg.HealthAddress = HealthAddressDefault
 	}
 
 	return *cfg

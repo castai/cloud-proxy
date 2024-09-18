@@ -16,7 +16,6 @@ require (
 	google.golang.org/api v0.197.0
 	google.golang.org/grpc v1.66.2
 	google.golang.org/protobuf v1.34.2
-	sigs.k8s.io/controller-runtime v0.19.0
 )
 
 require (
