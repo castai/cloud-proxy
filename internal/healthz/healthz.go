@@ -20,12 +20,34 @@ func NewServer(log *logrus.Logger) *Server {
 func (hc *Server) Run(addr string) error {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/healthz", hc.healthCheck)
+	mux.HandleFunc("/readyz", hc.readyCheck)
+	mux.HandleFunc("/livez", hc.liveCheck)
 
 	return http.ListenAndServe(addr, mux)
 }
 
-func (hc *Server) healthCheck(w http.ResponseWriter, r *http.Request) {
+func (hc *Server) readyCheck(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("content-type", "application/json")
+
+	response := map[string]string{
+		"status": "ok",
+	}
+
+	body, err := json.Marshal(response)
+	if err != nil {
+		hc.log.WithError(err).Errorf("Failed to marshal readiness check response")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+	if _, err := w.Write(body); err != nil {
+		hc.log.WithError(err).Errorf("Failed to write response body")
+	}
+}
+
+func (hc *Server) liveCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 
 	response := map[string]string{

@@ -444,7 +444,7 @@ func TestClient_run(t *testing.T) {
 					m.EXPECT().Context().Return(context.Background()).AnyTimes() // expected 0 or 1 times
 				},
 			},
-			wantLastSeenUpdated: false,
+			wantLastSeenUpdated: true,
 			wantErr:             true,
 		},
 		{
