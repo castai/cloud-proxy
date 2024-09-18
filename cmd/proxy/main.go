@@ -79,15 +79,7 @@ func main() {
 	client := proxy.New(conn, gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger,
 		cfg.ClusterID, GetVersion(), cfg.KeepAlive, cfg.KeepAliveTimeout)
 
-	go func() {
-		healthchecks := healthz.NewServer(logger)
-
-		logger.Infof("Starting healthcheck server on address %v", cfg.HealthAddress)
-
-		if err := healthchecks.Run(cfg.HealthAddress); err != nil {
-			logger.WithError(err).Errorf("Failed to run healthcheck server")
-		}
-	}()
+	go startHealthServer(logger, cfg.HealthAddress)
 
 	err = client.Run(ctx)
 	if err != nil {
@@ -120,4 +112,14 @@ func setupLogger(cfg config.Config) *logrus.Logger {
 	}).Infof("Starting cloud-proxy: %+v", cfg)
 
 	return logger
+}
+
+func startHealthServer(logger *logrus.Logger, addr string) {
+	healthchecks := healthz.NewServer(logger)
+
+	logger.Infof("Starting healthcheck server on address %v", addr)
+
+	if err := healthchecks.Run(addr); err != nil {
+		logger.WithError(err).Errorf("Failed to run healthcheck server")
+	}
 }
