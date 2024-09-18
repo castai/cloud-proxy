@@ -3,6 +3,7 @@ package proxy
 
 import (
 	"bytes"
+	"cloud-proxy/internal/config"
 	"context"
 	"fmt"
 	"io"
@@ -12,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"cloud-proxy/internal/config"
 	mock_proxy "cloud-proxy/internal/proxy/mock"
 	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 	"github.com/golang/mock/gomock"
