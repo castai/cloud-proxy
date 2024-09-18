@@ -2,35 +2,29 @@
 package gcp
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
-	"cloud-proxy/internal/cloud/gcp/gcpauth"
+	"golang.org/x/oauth2"
 )
 
 type Credentials interface {
 	GetToken() (string, error)
 }
 type Client struct {
-	credentials Credentials
-	httpClient  *http.Client
+	httpClient *http.Client
 }
 
-func New(credentials *gcpauth.CredentialsSource, client *http.Client) *Client {
-	return &Client{credentials: credentials, httpClient: client}
+func New(tokenSource oauth2.TokenSource) *Client {
+	client := oauth2.NewClient(context.Background(), tokenSource)
+	return &Client{httpClient: client}
 }
 
 func (c *Client) DoHTTPRequest(request *http.Request) (*http.Response, error) {
 	if request == nil {
 		return nil, fmt.Errorf("request is nil")
 	}
-
-	token, err := c.credentials.GetToken()
-	if err != nil {
-		return nil, fmt.Errorf("credentialsSrc.GetToken: error: %w", err)
-	}
-	// Set the authorize header manually since we can't rely on mothership auth.
-	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	resp, err := c.httpClient.Do(request)
 	if err != nil {

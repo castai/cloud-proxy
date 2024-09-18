@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"path"
 	"runtime"
 	"time"
@@ -33,7 +32,9 @@ func main() {
 	cfg := config.Get()
 	logger := setupLogger(cfg)
 
-	credsSource, err := gcpauth.NewCredentialsSource()
+	ctx := context.Background()
+
+	credsSource, err := gcpauth.NewCredentialsSource(ctx)
 	if err != nil {
 		logger.WithError(err).Panicf("Failed to create GCP credentials source")
 	}
@@ -77,15 +78,16 @@ func main() {
 		}
 	}(conn)
 
-	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.APIKey),
-	))
+	client := proxy.New(conn, gcp.New(credsSource), logger,
+		cfg.GetPodName(), cfg.ClusterID, GetVersion(), cfg.KeepAlive, cfg.KeepAliveTimeout)
 
 	go startHealthServer(logger, cfg.HealthAddress)
 
-	client := proxy.New(conn, gcp.New(credsSource, http.DefaultClient), logger,
-		cfg.GetPodName(), cfg.ClusterID, GetVersion(), cfg.KeepAlive, cfg.KeepAliveTimeout)
-	err = client.Run(ctx)
+	proxyCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs(
+		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.ApiKey),
+	))
+
+	err = client.Run(proxyCtx)
 	if err != nil {
 		logger.Panicf("Failed to run client: %v", err)
 		panic(err)
