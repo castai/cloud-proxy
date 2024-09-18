@@ -7,9 +7,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/google/uuid"
-
 	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
+	"github.com/google/uuid"
 )
 
 type HTTPOverGrpcRoundTripper struct {

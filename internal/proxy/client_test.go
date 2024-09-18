@@ -13,13 +13,12 @@ import (
 	"testing"
 	"time"
 
+	mock_proxy "cloud-proxy/internal/proxy/mock"
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 	"github.com/golang/mock/gomock"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-
-	mock_proxy "cloud-proxy/internal/proxy/mock"
-	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 )
 
 type mockReadCloserErr struct{}
@@ -33,7 +32,7 @@ func TestClient_toResponse(t *testing.T) {
 	t.Parallel()
 	type fields struct {
 		// tuneMockCredentials func(m *mock_gcp.MockCredentials)
-		// httpClient     *http.Client
+		// httpClient     *http.Client.
 	}
 	type args struct {
 		msgID string
@@ -86,7 +85,7 @@ func TestClient_toResponse(t *testing.T) {
 			c := New(nil, nil, nil, "podName", "clusterID", "version", time.Second, time.Minute)
 			got := c.toResponse(tt.args.resp)
 			// diff := cmp.Diff(got, tt.want, protocmp.Transform())
-			// require.Empty(t, diff)
+			// require.Empty(t, diff).
 			require.Equal(t, tt.want, got)
 		})
 	}

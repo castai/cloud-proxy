@@ -1,24 +1,22 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"net/http"
-	"path"
-	"runtime"
-	"time"
-
 	"cloud-proxy/internal/cloud/gcp"
 	"cloud-proxy/internal/cloud/gcp/gcpauth"
 	"cloud-proxy/internal/config"
 	"cloud-proxy/internal/proxy"
-
+	"context"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"net/http"
+	"path"
+	"runtime"
+	"time"
 )
 
 var (

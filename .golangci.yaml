@@ -85,10 +85,8 @@ linters-settings:
     sections:
       - standard
       - default
-      - prefix(cloud-proxy)
 issues:
   fix: true
-run:
-  skip-dirs:
+  exclude-dirs:
     - mock
     - internal/castai

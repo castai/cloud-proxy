@@ -22,7 +22,7 @@ type Config struct {
 	PodMetadata PodMetadata `mapstructure:"podmetadata"`
 
 	// MetricsAddress  string               `mapstructure:"metricsaddress"`
-	// HealthAddress   string               `mapstructure:"healthaddress"`
+	// HealthAddress   string               `mapstructure:"healthaddress"`.
 	Log Log `mapstructure:"log"`
 }
 
