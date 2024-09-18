@@ -3,6 +3,7 @@ package healthz
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -23,10 +24,16 @@ func (hc *Server) Run(addr string) error {
 	mux.HandleFunc("/readyz", hc.readyCheck)
 	mux.HandleFunc("/livez", hc.liveCheck)
 
-	return http.ListenAndServe(addr, mux)
+	server := &http.Server{
+		Addr:              addr,
+		ReadHeaderTimeout: 3 * time.Second,
+		Handler:           mux,
+	}
+
+	return server.ListenAndServe()
 }
 
-func (hc *Server) readyCheck(w http.ResponseWriter, r *http.Request) {
+func (hc *Server) readyCheck(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("content-type", "application/json")
 
 	// TODO: Implement proper readiness checks.
@@ -49,7 +56,7 @@ func (hc *Server) readyCheck(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (hc *Server) liveCheck(w http.ResponseWriter, r *http.Request) {
+func (hc *Server) liveCheck(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("content-type", "application/json")
 
 	// TODO: Implement proper liveness checks.

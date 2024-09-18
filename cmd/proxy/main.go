@@ -8,18 +8,18 @@ import (
 	"runtime"
 	"time"
 
-	"cloud-proxy/internal/cloud/gcp"
-	"cloud-proxy/internal/cloud/gcp/gcpauth"
-	"cloud-proxy/internal/config"
-	"cloud-proxy/internal/healthz"
-	"cloud-proxy/internal/proxy"
-
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+
+	"cloud-proxy/internal/cloud/gcp"
+	"cloud-proxy/internal/cloud/gcp/gcpauth"
+	"cloud-proxy/internal/config"
+	"cloud-proxy/internal/healthz"
+	"cloud-proxy/internal/proxy"
 )
 
 var (

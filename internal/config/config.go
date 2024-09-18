@@ -22,9 +22,9 @@ type Config struct {
 
 	PodMetadata PodMetadata `mapstructure:"podmetadata"`
 
-	// MetricsAddress  string               `mapstructure:"metricsaddress"`
+	// MetricsAddress  string               `mapstructure:"metricsaddress"`.
 	HealthAddress string `mapstructure:"healthaddress"`
-	Log Log `mapstructure:"log"`
+	Log           Log    `mapstructure:"log"`
 }
 
 // PodMetadata stores metadata for the pod, mostly used for logging and debugging purposes.
