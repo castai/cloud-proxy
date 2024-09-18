@@ -29,3 +29,10 @@ generate-grpc:
 			--go-grpc_out=proto/gen --go-grpc_opt paths=source_relative
 .PHONY: generate-grpc
 
+lint:
+	golangci-lint run ./...
+.PHONY: lint
+
+test:
+	go test ./... -race
+.PHONY: test

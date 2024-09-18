@@ -1,0 +1,46 @@
+linters:
+  disable-all: true
+  enable:
+    - containedctx
+    - dogsled
+    - dupword
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - gci
+    - gocognit
+    - goconst
+    - gocritic
+    - godot
+    - gofmt
+    - gofumpt
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - paralleltest
+    - revive
+    - sqlclosecheck
+    - staticcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+
+linters-settings:
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(cloud-proxy)
+
+run:
+  skip-dirs:
+    - mock
