@@ -1,10 +1,6 @@
 package main
 
 import (
-	"cloud-proxy/internal/cloud/gcp"
-	"cloud-proxy/internal/cloud/gcp/gcpauth"
-	"cloud-proxy/internal/config"
-	"cloud-proxy/internal/proxy"
 	"context"
 	"fmt"
 	"net/http"
@@ -18,6 +14,11 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+
+	"cloud-proxy/internal/cloud/gcp"
+	"cloud-proxy/internal/cloud/gcp/gcpauth"
+	"cloud-proxy/internal/config"
+	"cloud-proxy/internal/proxy"
 )
 
 var (
