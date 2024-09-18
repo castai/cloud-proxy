@@ -31,30 +31,35 @@ message InitialCloudProxyRequest {
   string version = 2;
 }
 
+
 message ClientStats {
   ClientMetadata client_metadata = 1;
+  message Stats {
+    // Status of the cluster client.
+    enum Status {
+      UNKNOWN = 0;
+      OK = 1;
+      CLOSING = 2;
+    }
+    Status status = 2;
 
-  // Status of the cluster client.
-  enum Status {
-    UNKNOWN = 0;
-    OK = 1;
-    CLOSING = 2;
+    int64 timestamp = 3;
+    // The total number of RPCs that started.
+    int64 num_calls_started = 4;
+
+    // The total number of RPCs that finished.
+    int64 num_calls_finished = 5;
+
+    // The total number of RPCs that failed to reach a server except dropped RPCs.
+    int64 num_calls_finished_with_client_failed_to_send = 6;
+
+    // The total number of RPCs that finished and are known to have been received
+    // by a server.
+    int64 num_calls_finished_known_received = 7;
   }
-  Status status = 2;
-
-  // The total number of RPCs that started.
-  int64 num_calls_started = 3;
-
-  // The total number of RPCs that finished.
-  int64 num_calls_finished = 4;
-
-  // The total number of RPCs that failed to reach a server except dropped RPCs.
-  int64 num_calls_finished_with_client_failed_to_send = 5;
-
-  // The total number of RPCs that finished and are known to have been received
-  // by a server.
-  int64 num_calls_finished_known_received = 6;
+  Stats stats = 2;
 }
+
 
 message ClusterResponse {
   optional ClientMetadata client_metadata = 1;

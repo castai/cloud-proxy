@@ -31,6 +31,7 @@ type Client struct {
 	grpcConn    *grpc.ClientConn
 	cloudClient CloudClient
 	log         *logrus.Logger
+	podName     string
 	clusterID   string
 
 	errCount       atomic.Int64
@@ -43,11 +44,12 @@ type Client struct {
 	version          string
 }
 
-func New(grpcConn *grpc.ClientConn, cloudClient CloudClient, logger *logrus.Logger, clusterID, version string, keepalive, keepaliveTimeout time.Duration) *Client {
+func New(grpcConn *grpc.ClientConn, cloudClient CloudClient, logger *logrus.Logger, podName, clusterID, version string, keepalive, keepaliveTimeout time.Duration) *Client {
 	c := &Client{
 		grpcConn:    grpcConn,
 		cloudClient: cloudClient,
 		log:         logger,
+		podName:     podName,
 		clusterID:   clusterID,
 		version:     version,
 	}
@@ -105,6 +107,7 @@ func (c *Client) sendInitialRequest(stream cloudproxyv1alpha.CloudProxyAPI_Strea
 		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_InitialRequest{
 			InitialRequest: &cloudproxyv1alpha.InitialCloudProxyRequest{
 				ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
+					PodName:   c.podName,
 					ClusterId: c.clusterID,
 				},
 				Version: c.version,
@@ -202,6 +205,7 @@ func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, s
 		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_Response{
 			Response: &cloudproxyv1alpha.ClusterResponse{
 				ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
+					PodName:   c.podName,
 					ClusterId: c.clusterID,
 				},
 				MessageId:    in.GetMessageId(),
@@ -278,9 +282,12 @@ func (c *Client) sendKeepAlive(stream cloudproxyv1alpha.CloudProxyAPI_StreamClou
 				Request: &cloudproxyv1alpha.StreamCloudProxyRequest_ClientStats{
 					ClientStats: &cloudproxyv1alpha.ClientStats{
 						ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
+							PodName:   c.podName,
 							ClusterId: c.clusterID,
 						},
-						Status: cloudproxyv1alpha.ClientStats_OK,
+						Stats: &cloudproxyv1alpha.ClientStats_Stats{
+							Status: cloudproxyv1alpha.ClientStats_Stats_OK,
+						},
 					},
 				},
 			})
