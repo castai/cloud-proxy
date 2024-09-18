@@ -56,7 +56,7 @@ type GCP struct {
 }
 
 type Log struct {
-	Level int32 `mapstructure:"level"`
+	Level uint32 `mapstructure:"level"`
 }
 
 var cfg *Config = nil
@@ -104,7 +104,7 @@ func Get() Config {
 	}
 
 	if cfg.Log.Level == 0 {
-		cfg.Log.Level = int32(logrus.InfoLevel)
+		cfg.Log.Level = uint32(logrus.InfoLevel)
 	}
 
 	if cfg.KeepAlive == 0 {
