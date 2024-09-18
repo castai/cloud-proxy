@@ -2,9 +2,10 @@
 package gcp
 
 import (
-	"cloud-proxy/internal/cloud/gcp/gcpauth"
 	"fmt"
 	"net/http"
+
+	"cloud-proxy/internal/cloud/gcp/gcpauth"
 )
 
 type Credentials interface {
