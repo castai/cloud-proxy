@@ -26,14 +26,14 @@ func (c *Client) DoHTTPRequest(request *http.Request) (*http.Response, error) {
 
 	token, err := c.credentials.GetToken()
 	if err != nil {
-		return nil, fmt.Errorf("credentialsSrc.GetToken: error: %v", err)
+		return nil, fmt.Errorf("credentialsSrc.GetToken: error: %w", err)
 	}
-	// Set the authorize header manually since we can't rely on mothership auth
+	// Set the authorize header manually since we can't rely on mothership auth.
 	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	resp, err := c.httpClient.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("httpClient.Do: request %+v error: %v", request, err)
+		return nil, fmt.Errorf("httpClient.Do: request %+v error: %w", request, err)
 	}
 
 	return resp, nil

@@ -94,7 +94,7 @@ message HTTPRequest {
 message HTTPResponse {
   optional bytes body = 1;
   optional string error = 2;
-  int32 status = 3;
+  int64 status = 3;
   map<string, HeaderValue> headers = 4;
 }
 
@@ -115,6 +115,5 @@ message SendToProxyResponse {
 message ClientMetadata {
   string cluster_id = 1;
   optional string organization_id = 2;
-  string namespace = 3;
-  string pod_name = 4;
+  string pod_name = 3;
 }

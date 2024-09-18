@@ -7,11 +7,12 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"cloud-proxy/internal/e2etest"
 	container "cloud.google.com/go/container/apiv1"
 	"cloud.google.com/go/container/apiv1/containerpb"
 	"google.golang.org/api/option"
 	htransport "google.golang.org/api/transport/http"
+
+	"cloud-proxy/internal/e2etest"
 )
 
 const (
@@ -30,7 +31,7 @@ func newMockEP(dispatcher *e2etest.Dispatcher, logger *log.Logger) (*mockEP, err
 	if err != nil {
 		return nil, err
 	}
-	httpClient.Transport = e2etest.NewHttpOverGrpcRoundTripper(dispatcher, logger)
+	httpClient.Transport = e2etest.NewHTTPOverGrpcRoundTripper(dispatcher, logger)
 	gkeProxiedClient, err := container.NewClusterManagerRESTClient(
 		context.Background(),
 		option.WithoutAuthentication(),

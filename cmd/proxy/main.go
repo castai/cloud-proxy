@@ -34,7 +34,7 @@ func main() {
 
 	dialOpts := make([]grpc.DialOption, 0)
 	if cfg.CastAI.DisableGRPCTLS {
-		// ONLY For testing purposes
+		// ONLY For testing purposes.
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
@@ -72,11 +72,11 @@ func main() {
 	}(conn)
 
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.ApiKey),
+		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.APIKey),
 	))
 
 	client := proxy.New(conn, gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger,
-		cfg.ClusterID, GetVersion(), cfg.KeepAlive, cfg.KeepAliveTimeout)
+		cfg.GetPodName(), cfg.ClusterID, GetVersion(), cfg.KeepAlive, cfg.KeepAliveTimeout)
 	err = client.Run(ctx)
 	if err != nil {
 		logger.Panicf("Failed to run client: %v", err)
@@ -93,7 +93,7 @@ func setupLogger(cfg config.Config) *logrus.Logger {
 	logger.SetLevel(logrus.Level(cfg.Log.Level))
 	logger.SetReportCaller(true)
 	logger.Formatter = &logrus.TextFormatter{
-		CallerPrettyfier: func(f *runtime.Frame) (function string, file string) {
+		CallerPrettyfier: func(f *runtime.Frame) (function, file string) {
 			filename := path.Base(f.File)
 			return fmt.Sprintf("%s()", f.Function), fmt.Sprintf("%s:%d", filename, f.Line)
 		},

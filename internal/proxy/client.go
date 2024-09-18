@@ -172,7 +172,7 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 		case <-time.After(time.Duration(c.keepAlive.Load())):
 			if !c.isAlive() {
 				if err := c.lastSeenError.Load(); err != nil {
-					return fmt.Errorf("recived error: %w", *err)
+					return fmt.Errorf("received error: %w", *err)
 				}
 				return fmt.Errorf("last seen too old, closing stream")
 			}
@@ -187,7 +187,7 @@ func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, s
 	}
 	c.processConfigurationRequest(in)
 
-	// skip processing http request if keep alive message
+	// skip processing http request if keep alive message.
 	if in.GetMessageId() == KeepAliveMessageID {
 		c.lastSeen.Store(time.Now().UnixNano())
 		c.log.Debugf("Received keep-alive message from castai for %s", in.GetClientMetadata().GetClusterId())
@@ -195,7 +195,7 @@ func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, s
 	}
 
 	c.log.Debugf("Received request for proxying msg_id=%v from castai", in.GetMessageId())
-	resp := c.processHttpRequest(in.GetHttpRequest())
+	resp := c.processHTTPRequest(in.GetHttpRequest())
 	if resp.GetError() != "" {
 		c.log.Errorf("Failed to proxy request msg_id=%v with %v", in.GetMessageId(), resp.GetError())
 	} else {
@@ -216,21 +216,20 @@ func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, s
 	if err != nil {
 		c.log.Errorf("error sending response for msg_id=%v %v", in.GetMessageId(), err)
 	}
-	return
 }
 
 func (c *Client) processConfigurationRequest(in *cloudproxyv1alpha.StreamCloudProxyResponse) {
 	if in.ConfigurationRequest != nil {
 		if in.ConfigurationRequest.GetKeepAlive() != 0 {
-			c.keepAlive.Store(int64(in.ConfigurationRequest.GetKeepAlive()))
+			c.keepAlive.Store(in.ConfigurationRequest.GetKeepAlive())
 		}
 		if in.ConfigurationRequest.GetKeepAliveTimeout() != 0 {
-			c.keepAliveTimeout.Store(int64(in.ConfigurationRequest.GetKeepAliveTimeout()))
+			c.keepAliveTimeout.Store(in.ConfigurationRequest.GetKeepAliveTimeout())
 		}
 	}
 }
 
-func (c *Client) processHttpRequest(req *cloudproxyv1alpha.HTTPRequest) *cloudproxyv1alpha.HTTPResponse {
+func (c *Client) processHTTPRequest(req *cloudproxyv1alpha.HTTPRequest) *cloudproxyv1alpha.HTTPResponse {
 	if req == nil {
 		return &cloudproxyv1alpha.HTTPResponse{
 			Error: lo.ToPtr("nil http request"),
@@ -256,10 +255,8 @@ func (c *Client) processHttpRequest(req *cloudproxyv1alpha.HTTPRequest) *cloudpr
 
 func (c *Client) isAlive() bool {
 	lastSeen := c.lastSeen.Load()
-	if time.Now().UnixNano()-lastSeen > c.keepAliveTimeout.Load() {
-		return false
-	}
-	return true
+
+	return time.Now().UnixNano()-lastSeen <= c.keepAliveTimeout.Load()
 }
 
 func (c *Client) sendKeepAlive(stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient) {
@@ -310,7 +307,7 @@ func (c *Client) toHTTPRequest(req *cloudproxyv1alpha.HTTPRequest) (*http.Reques
 
 	reqHTTP, err := http.NewRequestWithContext(context.Background(), req.GetMethod(), req.GetPath(), bytes.NewReader(req.GetBody()))
 	if err != nil {
-		return nil, fmt.Errorf("http.NewRequest: error: %v", err)
+		return nil, fmt.Errorf("http.NewRequest: error: %w", err)
 	}
 
 	for header, values := range req.GetHeaders() {
@@ -349,7 +346,7 @@ func (c *Client) toResponse(resp *http.Response) *cloudproxyv1alpha.HTTPResponse
 	return &cloudproxyv1alpha.HTTPResponse{
 		Body:    bodyResp,
 		Error:   errMessage,
-		Status:  int32(resp.StatusCode),
+		Status:  int64(resp.StatusCode),
 		Headers: headers,
 	}
 }

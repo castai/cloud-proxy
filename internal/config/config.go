@@ -21,8 +21,8 @@ type Config struct {
 
 	PodMetadata PodMetadata `mapstructure:"podmetadata"`
 
-	//MetricsAddress  string               `mapstructure:"metricsaddress"`
-	//HealthAddress   string               `mapstructure:"healthaddress"`
+	// MetricsAddress  string               `mapstructure:"metricsaddress"`
+	// HealthAddress   string               `mapstructure:"healthaddress"`
 	Log Log `mapstructure:"log"`
 }
 
@@ -40,8 +40,8 @@ type PodMetadata struct {
 
 // CastAPI contains the configuration for the connection to CAST AI API.
 type CastAPI struct {
-	// ApiKey is the API key used to authenticate to CAST AI API.
-	ApiKey string `mapstructure:"apikey"`
+	// APIKey is the API key used to authenticate to CAST AI API.
+	APIKey string `mapstructure:"apikey"`
 	// URL is the URL of CAST AI REST API.
 	URL string `mapstructure:"url"`
 	// GrpcURL is the URL of CAST AI gRPC API.
@@ -56,7 +56,7 @@ type GCP struct {
 }
 
 type Log struct {
-	Level int `mapstructure:"level"`
+	Level int32 `mapstructure:"level"`
 }
 
 var cfg *Config = nil
@@ -90,7 +90,7 @@ func Get() Config {
 		panic(fmt.Errorf("while parsing config: %w", err))
 	}
 
-	if cfg.CastAI.ApiKey == "" {
+	if cfg.CastAI.APIKey == "" {
 		required("CAST_API_KEY")
 	}
 	if cfg.CastAI.GrpcURL == "" {
@@ -104,7 +104,7 @@ func Get() Config {
 	}
 
 	if cfg.Log.Level == 0 {
-		cfg.Log.Level = int(logrus.InfoLevel)
+		cfg.Log.Level = int32(logrus.InfoLevel)
 	}
 
 	if cfg.KeepAlive == 0 {
@@ -123,4 +123,8 @@ func Get() Config {
 
 func required(variable string) {
 	panic(fmt.Errorf("variable %s is required", variable))
+}
+
+func (c *Config) GetPodName() string {
+	return fmt.Sprintf("%v@%v", cfg.PodMetadata.PodNamespace, cfg.PodMetadata.PodName)
 }
