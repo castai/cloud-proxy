@@ -33,6 +33,11 @@ func main() {
 	cfg := config.Get()
 	logger := setupLogger(cfg)
 
+	credsSource, err := gcpauth.NewCredentialsSource()
+	if err != nil {
+		logger.WithError(err).Panicf("Failed to create GCP credentials source")
+	}
+
 	dialOpts := make([]grpc.DialOption, 0)
 	if cfg.CastAI.DisableGRPCTLS {
 		// ONLY For testing purposes.
@@ -78,7 +83,7 @@ func main() {
 
 	go startHealthServer(logger, cfg.HealthAddress)
 
-	client := proxy.New(conn, gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger,
+	client := proxy.New(conn, gcp.New(credsSource, http.DefaultClient), logger,
 		cfg.GetPodName(), cfg.ClusterID, GetVersion(), cfg.KeepAlive, cfg.KeepAliveTimeout)
 	err = client.Run(ctx)
 	if err != nil {
