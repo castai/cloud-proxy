@@ -13,12 +13,13 @@ import (
 	"testing"
 	"time"
 
-	mock_proxy "cloud-proxy/internal/proxy/mock"
-	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 	"github.com/golang/mock/gomock"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+
+	mock_proxy "cloud-proxy/internal/proxy/mock"
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 )
 
 type mockReadCloserErr struct{}

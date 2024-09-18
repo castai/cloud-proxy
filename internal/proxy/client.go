@@ -12,10 +12,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 )
 
 const (
