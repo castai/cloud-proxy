@@ -34,7 +34,7 @@ func main() {
 
 	ctx := context.Background()
 
-	credsSource, err := gcpauth.NewCredentialsSource(ctx)
+	tokenSource, err := gcpauth.NewTokenSource(ctx)
 	if err != nil {
 		logger.WithError(err).Panicf("Failed to create GCP credentials source")
 	}
@@ -78,13 +78,13 @@ func main() {
 		}
 	}(conn)
 
-	client := proxy.New(conn, gcp.New(credsSource), logger,
+	client := proxy.New(conn, gcp.New(tokenSource), logger,
 		cfg.GetPodName(), cfg.ClusterID, GetVersion(), cfg.KeepAlive, cfg.KeepAliveTimeout)
 
 	go startHealthServer(logger, cfg.HealthAddress)
 
 	proxyCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs(
-		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.ApiKey),
+		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.APIKey),
 	))
 
 	err = client.Run(proxyCtx)

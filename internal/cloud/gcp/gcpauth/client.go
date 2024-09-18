@@ -7,7 +7,7 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
-func NewCredentialsSource(ctx context.Context, scopes ...string) (oauth2.TokenSource, error) {
+func NewTokenSource(ctx context.Context, scopes ...string) (oauth2.TokenSource, error) {
 	if len(scopes) == 0 {
 		scopes = []string{"https://www.googleapis.com/auth/cloud-platform"}
 	}

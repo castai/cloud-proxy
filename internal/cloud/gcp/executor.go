@@ -9,9 +9,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type Credentials interface {
-	GetToken() (string, error)
-}
 type Client struct {
 	httpClient *http.Client
 }
