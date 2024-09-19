@@ -16,23 +16,18 @@ resource "helm_release" "castai_cloud_proxy" {
   wait             = true
 
   set {
-    name  = "image.tag"
-    value = "latest"
-  }
-
-  set {
-    name  = "image.pullPolicy"
-    value = "Always"
-  }
-
-  set {
-    name  = "config.grpc.endpoint"
-    value = var.castai_grpc_url
+    name  = "castai.clusterID"
+    value = module.castai-gke-cluster.cluster_id
   }
 
   set_sensitive {
-    name  = "config.grpc.key"
+    name  = "castai.apiKey"
     value = var.castai_api_token
+  }
+
+  set {
+    name  = "castai.grpcURL"
+    value = var.castai_grpc_url
   }
 
   depends_on = [module.castai-gke-cluster]
