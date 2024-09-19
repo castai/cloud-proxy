@@ -20,7 +20,7 @@ type CredentialsSource struct {
 	scopes []string
 }
 
-// TODO: check if we should be doing it constantly; cache them; cache the token or something else
+// TODO: check if we should be doing it constantly; cache them; cache the token or something else.
 
 func (src *CredentialsSource) getDefaultCredentials() (*google.Credentials, error) {
 	defaultCreds, err := google.FindDefaultCredentials(context.Background(), src.scopes...)
@@ -29,6 +29,7 @@ func (src *CredentialsSource) getDefaultCredentials() (*google.Credentials, erro
 	}
 	return defaultCreds, nil
 }
+
 func (src *CredentialsSource) GetToken() (string, error) {
 	credentials, err := src.getDefaultCredentials()
 	if err != nil {

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TODO: test defaults
+// TODO: test defaults.
 
 func TestConfig(t *testing.T) {
 	r := require.New(t)
@@ -30,7 +30,7 @@ func TestConfig(t *testing.T) {
 
 	expected := Config{
 		CastAI: CastAPI{
-			ApiKey:         "API_KEY",
+			APIKey:         "API_KEY",
 			URL:            "cast-url",
 			GrpcURL:        "cast-grpc-url",
 			DisableGRPCTLS: true,

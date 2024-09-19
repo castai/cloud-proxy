@@ -7,22 +7,22 @@ import (
 	"log"
 	"net/http"
 
-	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
-
 	"github.com/google/uuid"
+
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 )
 
-type HttpOverGrpcRoundTripper struct {
+type HTTPOverGrpcRoundTripper struct {
 	dispatcher *Dispatcher
 
 	logger *log.Logger
 }
 
-func NewHttpOverGrpcRoundTripper(dispatcher *Dispatcher, logger *log.Logger) *HttpOverGrpcRoundTripper {
-	return &HttpOverGrpcRoundTripper{dispatcher: dispatcher, logger: logger}
+func NewHTTPOverGrpcRoundTripper(dispatcher *Dispatcher, logger *log.Logger) *HTTPOverGrpcRoundTripper {
+	return &HTTPOverGrpcRoundTripper{dispatcher: dispatcher, logger: logger}
 }
 
-func (p *HttpOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+func (p *HTTPOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
 	requestID := uuid.New().String()
 
 	headers := make(map[string]*cloudproxyv1alpha.HeaderValue)
@@ -50,13 +50,13 @@ func (p *HttpOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Respo
 	}
 	waiter, err := p.dispatcher.SendRequest(protoReq)
 	if err != nil {
-		return nil, fmt.Errorf("error sending request: %v", err)
+		return nil, fmt.Errorf("error sending request: %w", err)
 	}
 
 	response := <-waiter
 	p.logger.Println("Received a response back from dispatcher", requestID)
 
-	// Convert to response
+	// Convert to response.
 	resp := &http.Response{
 		StatusCode: int(response.GetResponse().GetHttpResponse().GetStatus()),
 		Header: func() http.Header {
