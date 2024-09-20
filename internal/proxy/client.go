@@ -140,16 +140,16 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 		for {
 			select {
 			case <-ctx.Done():
+				c.log.Debugf("context done")
 				return
 			case <-stream.Context().Done():
+				c.log.Debugf("stream closed")
 				return
 			default:
 				if !c.isAlive() {
 					return
 				}
 			}
-
-			c.log.Debugf("Polling stream for messages")
 
 			in, err := stream.Recv()
 			if err != nil {
