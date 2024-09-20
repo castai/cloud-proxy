@@ -102,7 +102,7 @@ func (c *Client) getStream(ctx context.Context) (cloudproxyv1alpha.CloudProxyAPI
 }
 
 func (c *Client) sendInitialRequest(stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient) error {
-	c.log.Info("Seding initial request to castai")
+	c.log.Info("Sending initial request to castai")
 
 	err := stream.Send(&cloudproxyv1alpha.StreamCloudProxyRequest{
 		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_InitialRequest{
@@ -228,6 +228,7 @@ func (c *Client) processConfigurationRequest(in *cloudproxyv1alpha.StreamCloudPr
 			c.keepAliveTimeout.Store(in.ConfigurationRequest.GetKeepAliveTimeout())
 		}
 	}
+	c.log.Debugf("Updated keep-alive configuration to %v and keep-alive timeout to %v", c.keepAlive.Load(), c.keepAliveTimeout.Load())
 }
 
 func (c *Client) processHTTPRequest(req *cloudproxyv1alpha.HTTPRequest) *cloudproxyv1alpha.HTTPResponse {
@@ -284,7 +285,8 @@ func (c *Client) sendKeepAlive(stream cloudproxyv1alpha.CloudProxyAPI_StreamClou
 							ClusterId: c.clusterID,
 						},
 						Stats: &cloudproxyv1alpha.ClientStats_Stats{
-							Status: cloudproxyv1alpha.ClientStats_Stats_OK,
+							Status:    cloudproxyv1alpha.ClientStats_Stats_OK,
+							Timestamp: time.Now().UnixNano(),
 						},
 					},
 				},
