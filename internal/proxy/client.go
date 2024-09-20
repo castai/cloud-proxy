@@ -227,8 +227,8 @@ func (c *Client) processConfigurationRequest(in *cloudproxyv1alpha.StreamCloudPr
 		if in.ConfigurationRequest.GetKeepAliveTimeout() != 0 {
 			c.keepAliveTimeout.Store(in.ConfigurationRequest.GetKeepAliveTimeout())
 		}
+		c.log.Debugf("Updated keep-alive configuration to %v and keep-alive timeout to %v", c.keepAlive.Load(), c.keepAliveTimeout.Load())
 	}
-	c.log.Debugf("Updated keep-alive configuration to %v and keep-alive timeout to %v", c.keepAlive.Load(), c.keepAliveTimeout.Load())
 }
 
 func (c *Client) processHTTPRequest(req *cloudproxyv1alpha.HTTPRequest) *cloudproxyv1alpha.HTTPResponse {
