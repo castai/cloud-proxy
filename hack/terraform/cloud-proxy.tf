@@ -1,10 +1,18 @@
-resource "google_project_iam_binding" "cloud_proxy_workload_identity" {
-  project = var.project_id
-  role    = "roles/container.clusterViewer"
-  members = [
-    "serviceAccount:${var.project_id}.svc.id.goog[castai-agent/castai-cloud-proxy]"
-  ]
-}
+#resource "google_project_iam_binding" "cloud_proxy_workload_identity_castai" {
+#  project = var.project_id
+#  role    = "projects/engineering-test-353509/roles/castai.gkeAccess"
+#  members = [
+#    "serviceAccount:${var.project_id}.svc.id.goog[castai-agent/castai-cloud-proxy]"
+#  ]
+#}
+#
+#resource "google_project_iam_binding" "cloud_proxy_workload_identity_service_account" {
+#  project = var.project_id
+#  role    = "roles/iam.serviceAccountUser"
+#  members = [
+#    "serviceAccount:${var.project_id}.svc.id.goog[castai-agent/castai-cloud-proxy]"
+#  ]
+#}
 
 resource "helm_release" "castai_cloud_proxy" {
   name             = "castai-cloud-proxy"

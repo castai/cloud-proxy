@@ -54,6 +54,7 @@ func main() {
 			Multiplier: 1.2,
 		},
 	}))
+
 	if cfg.GRPC.TLS.Enabled {
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
 	} else {
