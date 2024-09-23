@@ -79,15 +79,11 @@ func main() {
 	}(conn)
 
 	client := proxy.New(conn, gcp.New(tokenSource), logger,
-		cfg.GetPodName(), cfg.ClusterID, GetVersion(), cfg.KeepAlive, cfg.KeepAliveTimeout)
+		cfg.GetPodName(), cfg.ClusterID, GetVersion(), cfg.CastAI.APIKey, cfg.KeepAlive, cfg.KeepAliveTimeout)
 
 	go startHealthServer(logger, cfg.HealthAddress)
 
-	proxyCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs(
-		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.APIKey),
-	))
-
-	err = client.Run(proxyCtx)
+	err = client.Run(ctx)
 	if err != nil {
 		logger.Panicf("Failed to run client: %v", err)
 		panic(err)
