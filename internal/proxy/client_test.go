@@ -243,7 +243,7 @@ func TestClient_handleMessage(t *testing.T) {
 		//	wantKeepAlive:        int64(config.KeepAliveDefault),
 		//	wantKeepAliveTimeout: int64(config.KeepAliveTimeoutDefault),
 		//	wantErrCount:         1,
-		//},
+		//}.
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -354,72 +354,73 @@ func TestClient_processHttpRequest(t *testing.T) {
 	}
 }
 
-func TestClient_sendKeepAlive(t *testing.T) {
-	t.Parallel()
-
-	type args struct {
-		tuneMockStream   func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient)
-		keepAlive        int64
-		keepAliveTimeout int64
-	}
-	tests := []struct {
-		name           string
-		args           args
-		isLastSeenZero bool
-	}{
-		//{
-		//	name: "end of ticker",
-		//	args: args{
-		//		keepAlive: 0,
-		//		tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
-		//			m.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
-		//			m.EXPECT().Context().Return(context.Background()).AnyTimes()
-		//		},
-		//	},
-		//},
-		//{
-		//	name: "send returned error, should exit",
-		//	args: args{
-		//		tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
-		//			m.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("error"))
-		//			m.EXPECT().Context().Return(context.Background()).AnyTimes()
-		//		},
-		//		keepAlive:        int64(time.Second),
-		//		keepAliveTimeout: int64(10 * time.Minute),
-		//	},
-		//	isLastSeenZero: true,
-		//},
-	}
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			c := New(nil, nil, logrus.New(), "podName", "clusterID",
-				"version", "apiKey", config.KeepAliveDefault, config.KeepAliveTimeoutDefault)
-			c.keepAlive.Store(tt.args.keepAlive)
-			c.keepAliveTimeout.Store(tt.args.keepAliveTimeout)
-
-			stream := mock_proxy.NewMockCloudProxyAPI_StreamCloudProxyClient(ctrl)
-			if tt.args.tuneMockStream != nil {
-				tt.args.tuneMockStream(stream)
-			}
-			c.lastSeen.Store(time.Now().UnixNano())
-
-			kaCh := make(chan *cloudproxyv1alpha.StreamCloudProxyRequest)
-			go func() {
-				for {
-					<-kaCh
-				}
-			}()
-
-			c.sendKeepAlive(stream, kaCh)
-			require.Equal(t, tt.isLastSeenZero, c.lastSeen.Load() == 0, "lastSeen: %v", c.lastSeen.Load())
-		})
-	}
-}
+// nolint
+//func TestClient_sendKeepAlive(t *testing.T) {
+//	t.Parallel()
+//
+//	type args struct {
+//		tuneMockStream   func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient)
+//		keepAlive        int64
+//		keepAliveTimeout int64
+//	}
+//	tests := []struct {
+//		name           string
+//		args           args
+//		isLastSeenZero bool
+//	}{
+//		{
+//			name: "end of ticker",
+//			args: args{
+//				keepAlive: 0,
+//				tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
+//					m.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
+//					m.EXPECT().Context().Return(context.Background()).AnyTimes()
+//				},
+//			},
+//		},
+//		{
+//			name: "send returned error, should exit",
+//			args: args{
+//				tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
+//					m.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("error"))
+//					m.EXPECT().Context().Return(context.Background()).AnyTimes()
+//				},
+//				keepAlive:        int64(time.Second),
+//				keepAliveTimeout: int64(10 * time.Minute),
+//			},
+//			isLastSeenZero: true,
+//		},
+//	}
+//	for _, tt := range tests {
+//		tt := tt
+//		t.Run(tt.name, func(t *testing.T) {
+//			t.Parallel()
+//			ctrl := gomock.NewController(t)
+//			defer ctrl.Finish()
+//
+//			c := New(nil, nil, logrus.New(), "podName", "clusterID",
+//				"version", "apiKey", config.KeepAliveDefault, config.KeepAliveTimeoutDefault)
+//			c.keepAlive.Store(tt.args.keepAlive)
+//			c.keepAliveTimeout.Store(tt.args.keepAliveTimeout)
+//
+//			stream := mock_proxy.NewMockCloudProxyAPI_StreamCloudProxyClient(ctrl)
+//			if tt.args.tuneMockStream != nil {
+//				tt.args.tuneMockStream(stream)
+//			}
+//			c.lastSeen.Store(time.Now().UnixNano())
+//
+//			kaCh := make(chan *cloudproxyv1alpha.StreamCloudProxyRequest)
+//			go func() {
+//				for {
+//					<-kaCh
+//				}
+//			}()
+//
+//			c.sendKeepAlive(stream, kaCh)
+//			require.Equal(t, tt.isLastSeenZero, c.lastSeen.Load() == 0, "lastSeen: %v", c.lastSeen.Load())
+//		})
+//	}
+//}.
 
 func TestClient_run(t *testing.T) {
 	t.Parallel()
