@@ -3,7 +3,6 @@ module cloud-proxy
 go 1.23.1
 
 require (
-	cloud.google.com/go/compute v1.28.0
 	cloud.google.com/go/container v1.39.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
@@ -56,7 +55,6 @@ require (
 	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
-	google.golang.org/genproto v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240827150818-7e3bb234dfed // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

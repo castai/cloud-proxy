@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"path"
 	"runtime"
 	"time"
@@ -13,7 +12,6 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 
 	"cloud-proxy/internal/cloud/gcp"
 	"cloud-proxy/internal/cloud/gcp/gcpauth"
@@ -32,6 +30,13 @@ func main() {
 	logrus.Info("Starting proxy")
 	cfg := config.Get()
 	logger := setupLogger(cfg)
+
+	ctx := context.Background()
+
+	tokenSource, err := gcpauth.NewTokenSource(ctx)
+	if err != nil {
+		logger.WithError(err).Panicf("Failed to create GCP credentials source")
+	}
 
 	dialOpts := make([]grpc.DialOption, 0)
 	if cfg.CastAI.DisableGRPCTLS {
@@ -72,14 +77,11 @@ func main() {
 		}
 	}(conn)
 
-	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-		"authorization", fmt.Sprintf("Token %s", cfg.CastAI.APIKey),
-	))
+	client := proxy.New(conn, gcp.New(tokenSource), logger,
+		cfg.GetPodName(), cfg.ClusterID, GetVersion(), cfg.CastAI.APIKey, cfg.KeepAlive, cfg.KeepAliveTimeout)
 
 	go startHealthServer(logger, cfg.HealthAddress)
 
-	client := proxy.New(conn, gcp.New(gcpauth.NewCredentialsSource(), http.DefaultClient), logger,
-		cfg.GetPodName(), cfg.ClusterID, GetVersion(), cfg.KeepAlive, cfg.KeepAliveTimeout)
 	err = client.Run(ctx)
 	if err != nil {
 		logger.Panicf("Failed to run client: %v", err)
