@@ -46,20 +46,22 @@ func main() {
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
 	}
 
-	connectParams := grpc.ConnectParams{
+	dialOpts = append(dialOpts, grpc.WithConnectParams(grpc.ConnectParams{
 		Backoff: backoff.Config{
 			BaseDelay:  2 * time.Second,
 			Jitter:     0.1,
 			MaxDelay:   5 * time.Second,
 			Multiplier: 1.2,
 		},
-	}
-	dialOpts = append(dialOpts, grpc.WithConnectParams(connectParams))
+	}))
+	//dialOpts = append(dialOpts, grpc.WithKeepaliveParams(keepalive.ClientParameters{
+	//	Time:    20 * time.Second,
+	//	Timeout: 20 * time.Second,
+	//}))
 
 	logger.Infof(
-		"Creating grpc channel against (%s) with connection config (%+v) and TLS enabled=%v",
+		"Creating grpc channel against (%s) with TLS enabled=%v",
 		cfg.CastAI.GrpcURL,
-		connectParams,
 		!cfg.CastAI.DisableGRPCTLS,
 	)
 	conn, err := grpc.NewClient(cfg.CastAI.GrpcURL, dialOpts...)

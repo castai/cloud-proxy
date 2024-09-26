@@ -491,7 +491,7 @@ func TestClient_run(t *testing.T) {
 			if tt.args.tuneMockStream != nil {
 				tt.args.tuneMockStream(stream)
 			}
-			if err := c.run(tt.args.ctx(), stream, func() {}); (err != nil) != tt.wantErr {
+			if err := c.run(stream, func() {}); (err != nil) != tt.wantErr {
 				t.Errorf("run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			require.Equal(t, tt.wantLastSeenUpdated, c.lastSeen.Load() > 0, "lastSeen: %v", c.lastSeen.Load())

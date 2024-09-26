@@ -43,8 +43,6 @@ type PodMetadata struct {
 type CastAPI struct {
 	// APIKey is the API key used to authenticate to CAST AI API.
 	APIKey string `mapstructure:"apikey"`
-	// URL is the URL of CAST AI REST API.
-	URL string `mapstructure:"url"`
 	// GrpcURL is the URL of CAST AI gRPC API.
 	GrpcURL string `mapstructure:"grpcurl"`
 	// DisableGRPCTLS disables TLS for gRPC connection. Should only be used for testing.
@@ -70,7 +68,6 @@ func Get() Config {
 	v := viper.New()
 
 	v.MustBindEnv("cast.apikey", "CAST_API_KEY")
-	v.MustBindEnv("cast.url", "CAST_URL")
 	v.MustBindEnv("cast.grpcurl", "CAST_GRPC_URL")
 	v.MustBindEnv("cast.disablegrpctls", "CAST_DISABLE_GRPC_TLS")
 
@@ -98,9 +95,6 @@ func Get() Config {
 	}
 	if cfg.CastAI.GrpcURL == "" {
 		required("CAST_GRPC_URL")
-	}
-	if cfg.CastAI.URL == "" {
-		required("CAST_URL")
 	}
 	if cfg.ClusterID == "" {
 		required("CLUSTER_ID")
