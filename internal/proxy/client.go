@@ -182,7 +182,8 @@ func (c *Client) run(ctx context.Context) error {
 		case req := <-sendCh:
 			c.log.Printf("Sending message to stream")
 			if err := stream.Send(req); err != nil {
-				c.log.WithError(err).Warn("failed to send keep alive")
+				c.log.WithError(err).Warn("failed to send message to stream")
+				return fmt.Errorf("failed to send message to stream: %w", err)
 			}
 		case <-time.After(time.Duration(c.keepAlive.Load())):
 			if !c.isAlive() {
