@@ -266,7 +266,7 @@ func TestClient_handleMessage(t *testing.T) {
 				<-msgStream
 			}()
 
-			c.handleMessage(tt.args.in, msgStream)
+			c.handleMessage(context.Background(), tt.args.in, msgStream)
 			require.Equal(t, tt.wantLastSeenUpdated, c.lastSeen.Load() > 0, "lastSeen: %v", c.lastSeen.Load())
 			require.Equal(t, tt.wantKeepAlive, c.keepAlive.Load(), "keepAlive: %v", c.keepAlive.Load())
 			require.Equal(t, tt.wantKeepAliveTimeout, c.keepAliveTimeout.Load(), "keepAliveTimeout: %v", c.keepAliveTimeout.Load())
@@ -438,9 +438,6 @@ func TestClient_run(t *testing.T) {
 		{
 			name: "send initial error",
 			args: args{
-				ctx: func() context.Context {
-					return context.Background()
-				},
 				tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
 					m.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("test error"))
 				},
@@ -450,14 +447,12 @@ func TestClient_run(t *testing.T) {
 		{
 			name: "context done",
 			args: args{
-				ctx: func() context.Context {
+				tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
 					ctx, cancel := context.WithCancel(context.Background())
 					cancel()
-					return ctx
-				},
-				tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
-					m.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()         // expected 0 or 1 times.
-					m.EXPECT().Context().Return(context.Background()).AnyTimes() // expected 0 or 1 times.
+
+					m.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes() // expected 0 or 1 times.
+					m.EXPECT().Context().Return(ctx).AnyTimes()          // expected 0 or 1 times.
 				},
 			},
 			wantLastSeenUpdated: true,
@@ -466,9 +461,6 @@ func TestClient_run(t *testing.T) {
 		{
 			name: "stream not alive",
 			args: args{
-				ctx: func() context.Context {
-					return context.Background()
-				},
 				tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
 					m.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()         // expected 0 or 1 times.
 					m.EXPECT().Context().Return(context.Background()).AnyTimes() // expected 0 or 1 times.
@@ -491,7 +483,7 @@ func TestClient_run(t *testing.T) {
 			if tt.args.tuneMockStream != nil {
 				tt.args.tuneMockStream(stream)
 			}
-			if err := c.run(tt.args.ctx(), stream, func() {}); (err != nil) != tt.wantErr {
+			if err := c.run(stream, func() {}); (err != nil) != tt.wantErr {
 				t.Errorf("run() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			require.Equal(t, tt.wantLastSeenUpdated, c.lastSeen.Load() > 0, "lastSeen: %v", c.lastSeen.Load())
