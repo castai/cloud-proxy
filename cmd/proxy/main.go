@@ -53,8 +53,9 @@ func main() {
 			MaxDelay:   5 * time.Second,
 			Multiplier: 1.2,
 		},
+		MinConnectTimeout: 10 * time.Second,
 	}
-	dialOpts = append(dialOpts, grpc.WithConnectParams(connectParams))
+	dialOpts = append(dialOpts, grpc.WithConnectParams(connectParams), grpc.WithIdleTimeout(cfg.KeepAliveTimeout))
 
 	logger.Infof(
 		"Creating grpc channel against (%s) with connection config (%+v) and TLS enabled=%v",
