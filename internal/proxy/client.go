@@ -147,12 +147,9 @@ func (c *Client) run(ctx context.Context) error {
 		return fmt.Errorf("c.Connect: %w", err)
 	}
 
-	keepAliveCh := make(chan *cloudproxyv1alpha.StreamCloudProxyRequest)
-	defer close(keepAliveCh)
-	go c.sendKeepAlive(stream, keepAliveCh)
-
-	messageRespCh := make(chan *cloudproxyv1alpha.StreamCloudProxyRequest)
-	defer close(messageRespCh)
+	sendCh := make(chan *cloudproxyv1alpha.StreamCloudProxyRequest, 10)
+	defer close(sendCh)
+	go c.sendKeepAlive(stream, sendCh)
 
 	go func() {
 		for {
@@ -178,7 +175,7 @@ func (c *Client) run(ctx context.Context) error {
 			}
 
 			c.log.Debugf("Handling message from castai")
-			go c.handleMessage(in, messageRespCh)
+			go c.handleMessage(stream.Context(), in, sendCh)
 		}
 	}()
 
@@ -188,14 +185,10 @@ func (c *Client) run(ctx context.Context) error {
 			return ctx.Err()
 		case <-stream.Context().Done():
 			return fmt.Errorf("stream closed %w", stream.Context().Err())
-		case req := <-keepAliveCh:
+		case req := <-sendCh:
+			c.log.Printf("Sending message to stream")
 			if err := stream.Send(req); err != nil {
 				c.log.WithError(err).Warn("failed to send keep alive")
-			}
-		case req := <-messageRespCh:
-			if err := stream.Send(req); err != nil {
-				c.log.WithError(err).Warn("failed to send message response")
-				return fmt.Errorf("stream.Send: %w", err)
 			}
 		case <-time.After(time.Duration(c.keepAlive.Load())):
 			if !c.isAlive() {
@@ -208,7 +201,7 @@ func (c *Client) run(ctx context.Context) error {
 	}
 }
 
-func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, respCh chan<- *cloudproxyv1alpha.StreamCloudProxyRequest) {
+func (c *Client) handleMessage(ctx context.Context, in *cloudproxyv1alpha.StreamCloudProxyResponse, respCh chan<- *cloudproxyv1alpha.StreamCloudProxyRequest) {
 	if in == nil {
 		c.log.Error("nil message")
 		return
@@ -230,7 +223,12 @@ func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, r
 	} else {
 		c.log.Debugf("Proxied request msg_id=%v, sending response to castai", in.GetMessageId())
 	}
-	respCh <- &cloudproxyv1alpha.StreamCloudProxyRequest{
+
+	select {
+	case <-ctx.Done():
+		return
+
+	case respCh <- &cloudproxyv1alpha.StreamCloudProxyRequest{
 		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_Response{
 			Response: &cloudproxyv1alpha.ClusterResponse{
 				ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
@@ -241,6 +239,8 @@ func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, r
 				HttpResponse: resp,
 			},
 		},
+	}:
+		return
 	}
 }
 

@@ -266,7 +266,7 @@ func TestClient_handleMessage(t *testing.T) {
 				<-msgStream
 			}()
 
-			c.handleMessage(tt.args.in, msgStream)
+			c.handleMessage(context.Background(), tt.args.in, msgStream)
 			require.Equal(t, tt.wantLastSeenUpdated, c.lastSeen.Load() > 0, "lastSeen: %v", c.lastSeen.Load())
 			require.Equal(t, tt.wantKeepAlive, c.keepAlive.Load(), "keepAlive: %v", c.keepAlive.Load())
 			require.Equal(t, tt.wantKeepAliveTimeout, c.keepAliveTimeout.Load(), "keepAliveTimeout: %v", c.keepAliveTimeout.Load())
