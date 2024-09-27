@@ -222,13 +222,13 @@ func (c *Client) sendAndReceive(ctx context.Context, stream cloudproxyv1alpha.Cl
 		return err
 	})
 
-	eg.Go(func() error {
+	// send loop is separate because it can block on sending messages.
+	go func() {
 		err := c.send(egctx, stream, sendCh)
 		if err != nil {
-			c.log.Errorf("stopping send loop: %v", err)
+			c.log.Errorf("stopped send loop: %v", err)
 		}
-		return err
-	})
+	}()
 
 	err = eg.Wait()
 	if err != nil {
