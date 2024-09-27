@@ -7,12 +7,13 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"cloud-proxy/internal/cloud/gcp"
 	"cloud-proxy/internal/cloud/gcp/gcpauth"
 	"cloud-proxy/internal/config"
 	"cloud-proxy/internal/healthz"
 	"cloud-proxy/internal/proxy"
-	"github.com/sirupsen/logrus"
 )
 
 var (

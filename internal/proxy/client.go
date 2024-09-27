@@ -14,15 +14,15 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
 	"cloud-proxy/internal/config"
 	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/backoff"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
