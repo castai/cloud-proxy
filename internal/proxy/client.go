@@ -207,16 +207,17 @@ func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, r
 		c.log.Error("nil message")
 		return
 	}
+
+	c.lastSeen.Store(time.Now().UnixNano())
 	c.processConfigurationRequest(in)
 
 	// skip processing http request if keep alive message.
 	if in.GetMessageId() == KeepAliveMessageID {
-		c.lastSeen.Store(time.Now().UnixNano())
 		c.log.Debugf("Received keep-alive message from castai for %s", in.GetClientMetadata().GetClusterId())
 		return
 	}
 
-	c.log.Debugf("Received request for proxying msg_id=%v from castai", in.GetMessageId())
+	c.log.Debugf("Received request for proxying msg_id=%v path=%v from castai", in.GetMessageId(), in.GetHttpRequest().GetPath())
 	resp := c.processHTTPRequest(in.GetHttpRequest())
 	if resp.GetError() != "" {
 		c.log.Errorf("Failed to proxy request msg_id=%v with %v", in.GetMessageId(), resp.GetError())
@@ -238,14 +239,17 @@ func (c *Client) handleMessage(in *cloudproxyv1alpha.StreamCloudProxyResponse, r
 }
 
 func (c *Client) processConfigurationRequest(in *cloudproxyv1alpha.StreamCloudProxyResponse) {
-	if in.ConfigurationRequest != nil {
-		if in.ConfigurationRequest.GetKeepAlive() != 0 {
-			c.keepAlive.Store(in.ConfigurationRequest.GetKeepAlive())
-		}
-		if in.ConfigurationRequest.GetKeepAliveTimeout() != 0 {
-			c.keepAliveTimeout.Store(in.ConfigurationRequest.GetKeepAliveTimeout())
-		}
+	if in.ConfigurationRequest == nil {
+		return
 	}
+
+	if in.ConfigurationRequest.GetKeepAlive() != 0 {
+		c.keepAlive.Store(in.ConfigurationRequest.GetKeepAlive())
+	}
+	if in.ConfigurationRequest.GetKeepAliveTimeout() != 0 {
+		c.keepAliveTimeout.Store(in.ConfigurationRequest.GetKeepAliveTimeout())
+	}
+
 	c.log.Debugf("Updated keep-alive configuration to %v and keep-alive timeout to %v", c.keepAlive.Load(), c.keepAliveTimeout.Load())
 }
 
