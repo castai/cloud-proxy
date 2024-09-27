@@ -170,7 +170,7 @@ func (c *Client) sendInitialRequest(stream cloudproxyv1alpha.CloudProxyAPI_Strea
 	if err != nil {
 		return fmt.Errorf("stream.Send: initial request %w", err)
 	}
-	c.lastSeenReceive.Store(time.Now().UnixNano())
+	c.lastSeenSend.Store(time.Now().UnixNano())
 
 	c.log.Info("Stream to castai started successfully")
 
@@ -286,6 +286,7 @@ func (c *Client) receive(ctx context.Context, stream cloudproxyv1alpha.CloudProx
 			return fmt.Errorf("stream.Recv: %w", err)
 		}
 
+		c.lastSeenReceive.Store(time.Now().UnixNano())
 		c.log.Debugf("Handling message from castai")
 		go c.handleMessage(stream.Context(), in, respCh)
 	}
@@ -297,7 +298,6 @@ func (c *Client) handleMessage(ctx context.Context, in *cloudproxyv1alpha.Stream
 		return
 	}
 
-	c.lastSeenReceive.Store(time.Now().UnixNano())
 	c.processConfigurationRequest(in)
 
 	// skip processing http request if keep alive message.
