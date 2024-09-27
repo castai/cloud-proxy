@@ -81,14 +81,7 @@ func (c *Client) Run(ctx context.Context) error {
 			return streamCtx.Err()
 		case <-t.C:
 			c.log.Info("Starting proxy client")
-			stream, closeStream, err := c.getStream(streamCtx)
-			if err != nil {
-				c.log.Errorf("Could not get stream, restarting proxy client in %vs: %v", time.Duration(c.keepAlive.Load()).Seconds(), err)
-				t.Reset(time.Duration(c.keepAlive.Load()))
-				continue
-			}
-
-			err = c.run(streamCtx, stream, closeStream)
+			err := c.run(streamCtx)
 			if err != nil {
 				c.log.Errorf("Restarting proxy client in %vs: due to error: %v", time.Duration(c.keepAlive.Load()).Seconds(), err)
 				t.Reset(time.Duration(c.keepAlive.Load()))
@@ -139,10 +132,17 @@ func (c *Client) sendInitialRequest(stream cloudproxyv1alpha.CloudProxyAPI_Strea
 	return nil
 }
 
-func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient, closeStream func()) error {
+func (c *Client) run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	stream, closeStream, err := c.getStream(ctx)
+	if err != nil {
+		return fmt.Errorf("c.getStream: %w", err)
+	}
 	defer closeStream()
 
-	err := c.sendInitialRequest(stream)
+	err = c.sendInitialRequest(stream)
 	if err != nil {
 		return fmt.Errorf("c.Connect: %w", err)
 	}
@@ -195,6 +195,7 @@ func (c *Client) run(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI
 		case req := <-messageRespCh:
 			if err := stream.Send(req); err != nil {
 				c.log.WithError(err).Warn("failed to send message response")
+				return fmt.Errorf("stream.Send: %w", err)
 			}
 		case <-time.After(time.Duration(c.keepAlive.Load())):
 			if !c.isAlive() {

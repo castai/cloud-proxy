@@ -54,8 +54,9 @@ func main() {
 			MaxDelay:   5 * time.Second,
 			Multiplier: 1.2,
 		},
+		MinConnectTimeout: 10 * time.Second,
 	}
-	dialOpts = append(dialOpts, grpc.WithConnectParams(connectParams))
+	dialOpts = append(dialOpts, grpc.WithConnectParams(connectParams), grpc.WithIdleTimeout(cfg.KeepAliveTimeout))
 
 	if cfg.UseCompression {
 		dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(
