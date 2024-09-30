@@ -467,7 +467,7 @@ func TestClient_sendAndReceive(t *testing.T) {
 					m.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("test error"))
 				},
 			},
-			wantErr: false,
+			wantErr: true,
 		},
 		{
 			name: "context done",
@@ -484,12 +484,13 @@ func TestClient_sendAndReceive(t *testing.T) {
 						cancel()
 						return ctx
 					}).AnyTimes() // expected 0 or 1 times.
+					m.EXPECT().CloseSend().Return(nil)
 				},
 			},
 			wantErr: true,
 		},
 		{
-			name: "stream not alive",
+			name: "receive not alive",
 			args: args{
 				ctx: func() context.Context {
 					return context.Background()
@@ -497,7 +498,8 @@ func TestClient_sendAndReceive(t *testing.T) {
 				tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
 					m.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()         // expected 0 or 1 times.
 					m.EXPECT().Context().Return(context.Background()).AnyTimes() // expected 0 or 1 times.
-					m.EXPECT().Recv().Return(nil, fmt.Errorf("test error"))
+					m.EXPECT().Recv().Return(nil, fmt.Errorf("test error")).AnyTimes()
+					m.EXPECT().CloseSend().Return(nil).AnyTimes()
 				},
 			},
 			wantErr: true,
