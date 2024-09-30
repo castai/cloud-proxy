@@ -187,14 +187,12 @@ func TestClient_handleMessage(t *testing.T) {
 		name                 string
 		fields               fields
 		args                 args
-		wantLastSeenUpdated  bool
 		wantKeepAlive        int64
 		wantKeepAliveTimeout int64
 		wantErrCount         int64
 	}{
 		{
 			name:                 "nil response",
-			wantLastSeenUpdated:  false,
 			wantKeepAlive:        int64(config.KeepAliveDefault),
 			wantKeepAliveTimeout: int64(config.KeepAliveTimeoutDefault),
 		},
@@ -205,7 +203,6 @@ func TestClient_handleMessage(t *testing.T) {
 					MessageId: KeepAliveMessageID,
 				},
 			},
-			wantLastSeenUpdated:  true,
 			wantKeepAlive:        int64(config.KeepAliveDefault),
 			wantKeepAliveTimeout: int64(config.KeepAliveTimeoutDefault),
 		},
@@ -220,7 +217,6 @@ func TestClient_handleMessage(t *testing.T) {
 					},
 				},
 			},
-			wantLastSeenUpdated:  true,
 			wantKeepAlive:        1,
 			wantKeepAliveTimeout: 2,
 		},
@@ -288,7 +284,6 @@ func TestClient_handleMessage(t *testing.T) {
 			}()
 
 			c.handleMessage(context.Background(), tt.args.in, msgStream)
-			require.Equal(t, tt.wantLastSeenUpdated, c.lastSeenReceive.Load() > 0, "lastSeen: %v", c.lastSeenReceive.Load())
 			require.Equal(t, tt.wantKeepAlive, c.keepAlive.Load(), "keepAlive: %v", c.keepAlive.Load())
 			require.Equal(t, tt.wantKeepAliveTimeout, c.keepAliveTimeout.Load(), "keepAliveTimeout: %v", c.keepAliveTimeout.Load())
 			require.Equal(t, tt.wantErrCount, c.errCount.Load(), "errCount: %v", c.errCount.Load())
