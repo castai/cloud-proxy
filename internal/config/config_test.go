@@ -45,6 +45,7 @@ func TestConfig(t *testing.T) {
 		Log: Log{
 			Level: 3,
 		},
+		UseCompression:   false,
 		KeepAlive:        KeepAliveDefault,
 		KeepAliveTimeout: KeepAliveTimeoutDefault,
 		HealthAddress:    HealthAddressDefault,
