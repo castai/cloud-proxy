@@ -280,12 +280,7 @@ func TestClient_handleMessage(t *testing.T) {
 				tt.args.tuneMockStream(stream)
 			}
 
-			msgStream := make(chan *cloudproxyv1alpha.StreamCloudProxyRequest)
-			go func() {
-				<-msgStream
-			}()
-
-			c.handleMessage(context.Background(), tt.args.in, msgStream)
+			c.handleMessage(context.Background(), tt.args.in)
 			require.Equal(t, tt.wantKeepAlive, c.keepAlive.Load(), "keepAlive: %v", c.keepAlive.Load())
 			require.Equal(t, tt.wantKeepAliveTimeout, c.keepAliveTimeout.Load(), "keepAliveTimeout: %v", c.keepAliveTimeout.Load())
 			require.Equal(t, tt.wantErrCount, c.errCount.Load(), "errCount: %v", c.errCount.Load())
@@ -534,6 +529,7 @@ func TestClient_sendAndReceive(t *testing.T) {
 			if tt.args.tuneMockStream != nil {
 				tt.args.tuneMockStream(stream)
 			}
+
 			if err := c.sendAndReceive(tt.args.ctx(), stream); (err != nil) != tt.wantErr {
 				t.Errorf("run() error = %v, wantErr %v", err, tt.wantErr)
 			}
