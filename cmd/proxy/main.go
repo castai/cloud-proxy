@@ -1,12 +1,6 @@
 package main
 
 import (
-	"cloud-proxy/internal/cloud/gcp"
-	"cloud-proxy/internal/cloud/gcp/gcpauth"
-	"cloud-proxy/internal/config"
-	"cloud-proxy/internal/healthz"
-	"cloud-proxy/internal/proxy"
-
 	"context"
 	"fmt"
 	"path"
@@ -14,6 +8,12 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+
+	"cloud-proxy/internal/cloud/gcp"
+	"cloud-proxy/internal/cloud/gcp/gcpauth"
+	"cloud-proxy/internal/config"
+	"cloud-proxy/internal/healthz"
+	"cloud-proxy/internal/proxy"
 )
 
 var (

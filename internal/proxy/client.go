@@ -5,8 +5,6 @@ package proxy
 
 import (
 	"bytes"
-	"cloud-proxy/internal/config"
-	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 	"context"
 	"fmt"
 	"io"
@@ -23,6 +21,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/metadata"
+
+	"cloud-proxy/internal/config"
+	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
 )
 
 const (
