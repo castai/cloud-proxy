@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/encoding/gzip"
 
 	"cloud-proxy/internal/cloud/gcp"
 	"cloud-proxy/internal/cloud/gcp/gcpauth"
@@ -55,6 +56,12 @@ func main() {
 		},
 	}
 	dialOpts = append(dialOpts, grpc.WithConnectParams(connectParams))
+
+	if cfg.UseCompression {
+		dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(
+			grpc.UseCompressor(gzip.Name),
+		))
+	}
 
 	logger.Infof(
 		"Creating grpc channel against (%s) with connection config (%+v) and TLS enabled=%v",

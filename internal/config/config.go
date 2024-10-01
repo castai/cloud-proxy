@@ -20,6 +20,8 @@ type Config struct {
 	KeepAlive        time.Duration `mapstructure:"keepalive"`
 	KeepAliveTimeout time.Duration `mapstructure:"keepalivetimeout"`
 
+	UseCompression bool `mapstructure:"usecompression"`
+
 	PodMetadata PodMetadata `mapstructure:"podmetadata"`
 
 	// MetricsAddress  string               `mapstructure:"metricsaddress"`.
@@ -83,6 +85,8 @@ func Get() Config {
 
 	_ = v.BindEnv("keepalive", "KEEP_ALIVE")
 	_ = v.BindEnv("keepalivetimeout", "KEEP_ALIVE_TIMEOUT")
+
+	_ = v.BindEnv("usecompression", "USE_COMPRESSION")
 
 	_ = v.BindEnv("log.level", "LOG_LEVEL")
 

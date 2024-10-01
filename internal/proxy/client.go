@@ -22,6 +22,10 @@ import (
 
 const (
 	KeepAliveMessageID = "keep-alive"
+
+	authorizationMetadataKey = "authorization"
+	clusterIDMetadataKey     = "cluster-id"
+	podNameMetadataKey       = "pod-name"
 )
 
 type CloudClient interface {
@@ -63,26 +67,28 @@ func New(grpcConn *grpc.ClientConn, cloudClient CloudClient, logger *logrus.Logg
 }
 
 func (c *Client) Run(ctx context.Context) error {
-	authCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs(
-		"authorization", fmt.Sprintf("Token %s", c.apiKey),
+	streamCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs(
+		authorizationMetadataKey, fmt.Sprintf("Token %s", c.apiKey),
+		clusterIDMetadataKey, c.clusterID,
+		podNameMetadataKey, c.podName,
 	))
 
 	t := time.NewTimer(time.Millisecond)
 
 	for {
 		select {
-		case <-authCtx.Done():
-			return authCtx.Err()
+		case <-streamCtx.Done():
+			return streamCtx.Err()
 		case <-t.C:
 			c.log.Info("Starting proxy client")
-			stream, closeStream, err := c.getStream(authCtx)
+			stream, closeStream, err := c.getStream(streamCtx)
 			if err != nil {
 				c.log.Errorf("Could not get stream, restarting proxy client in %vs: %v", time.Duration(c.keepAlive.Load()).Seconds(), err)
 				t.Reset(time.Duration(c.keepAlive.Load()))
 				continue
 			}
 
-			err = c.run(authCtx, stream, closeStream)
+			err = c.run(streamCtx, stream, closeStream)
 			if err != nil {
 				c.log.Errorf("Restarting proxy client in %vs: due to error: %v", time.Duration(c.keepAlive.Load()).Seconds(), err)
 				t.Reset(time.Duration(c.keepAlive.Load()))
