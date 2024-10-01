@@ -36,6 +36,8 @@ type CloudClient interface {
 type Client struct {
 	cfg *config.Config
 
+	sendCh chan *cloudproxyv1alpha.StreamCloudProxyRequest
+
 	cloudClient       CloudClient
 	log               *logrus.Logger
 	podName           string
@@ -57,6 +59,7 @@ type Client struct {
 func New(cloudClient CloudClient, logger *logrus.Logger, version string, cfg *config.Config) *Client {
 	c := &Client{
 		cfg:         cfg,
+		sendCh:      make(chan *cloudproxyv1alpha.StreamCloudProxyRequest, 100),
 		cloudClient: cloudClient,
 		log:         logger,
 		podName:     cfg.PodMetadata.PodName,
@@ -70,6 +73,8 @@ func New(cloudClient CloudClient, logger *logrus.Logger, version string, cfg *co
 }
 
 func (c *Client) Run(ctx context.Context) error {
+	defer close(c.sendCh)
+
 	authCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs(
 		"authorization", fmt.Sprintf("Token %s", c.cfg.CastAI.APIKey),
 	))
@@ -160,13 +165,10 @@ func (c *Client) prepareAndRun(ctx context.Context) error {
 }
 
 func (c *Client) sendAndReceive(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient) error {
-	eg, egctx := errgroup.WithContext(ctx)
-
-	sendCh := make(chan *cloudproxyv1alpha.StreamCloudProxyRequest, 10)
-	defer close(sendCh)
+	eg, egCtx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		err := c.sendKeepAlive(egctx, stream, sendCh)
+		err := c.sendKeepAlive(egCtx, stream)
 		if err != nil {
 			c.log.Errorf("stopping keep-alive loop: %v", err)
 		}
@@ -174,7 +176,7 @@ func (c *Client) sendAndReceive(ctx context.Context, stream cloudproxyv1alpha.Cl
 	})
 
 	eg.Go(func() error {
-		err := c.receive(egctx, stream, sendCh)
+		err := c.receive(egCtx, stream)
 		if err != nil {
 			c.log.Errorf("stopping receive loop: %v", err)
 		}
@@ -183,7 +185,7 @@ func (c *Client) sendAndReceive(ctx context.Context, stream cloudproxyv1alpha.Cl
 
 	// send loop is separate because it can block on sending messages.
 	go func() {
-		err := c.send(egctx, stream, sendCh)
+		err := c.send(egCtx, stream)
 		if err != nil {
 			c.log.Errorf("stopped send loop: %v", err)
 		}
@@ -197,7 +199,7 @@ func (c *Client) sendAndReceive(ctx context.Context, stream cloudproxyv1alpha.Cl
 	return err
 }
 
-func (c *Client) send(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient, sendCh chan *cloudproxyv1alpha.StreamCloudProxyRequest) error {
+func (c *Client) send(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient) error {
 	defer func() {
 		c.log.Info("Closing send channel")
 		_ = stream.CloseSend()
@@ -209,7 +211,7 @@ func (c *Client) send(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAP
 			return ctx.Err()
 		case <-stream.Context().Done():
 			return fmt.Errorf("stream closed %w", stream.Context().Err())
-		case req := <-sendCh:
+		case req := <-c.sendCh:
 			c.log.Printf("Sending message to stream %v len=%v", req.GetResponse().GetMessageId(), len(req.GetResponse().GetHttpResponse().GetBody()))
 			if err := stream.Send(req); err != nil {
 				c.log.WithError(err).Warn("failed to send message to stream")
@@ -225,7 +227,7 @@ func (c *Client) send(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAP
 	}
 }
 
-func (c *Client) receive(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient, respCh chan<- *cloudproxyv1alpha.StreamCloudProxyRequest) error {
+func (c *Client) receive(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -249,11 +251,11 @@ func (c *Client) receive(ctx context.Context, stream cloudproxyv1alpha.CloudProx
 
 		c.lastSeenReceive.Store(time.Now().UnixNano())
 		c.log.Debugf("Handling message from castai")
-		go c.handleMessage(ctx, in, respCh)
+		go c.handleMessage(ctx, in)
 	}
 }
 
-func (c *Client) handleMessage(ctx context.Context, in *cloudproxyv1alpha.StreamCloudProxyResponse, respCh chan<- *cloudproxyv1alpha.StreamCloudProxyRequest) {
+func (c *Client) handleMessage(ctx context.Context, in *cloudproxyv1alpha.StreamCloudProxyResponse) {
 	if in == nil {
 		c.log.Error("nil message")
 		return
@@ -279,11 +281,10 @@ func (c *Client) handleMessage(ctx context.Context, in *cloudproxyv1alpha.Stream
 	case <-ctx.Done():
 		return
 
-	case respCh <- &cloudproxyv1alpha.StreamCloudProxyRequest{
+	case c.sendCh <- &cloudproxyv1alpha.StreamCloudProxyRequest{
 		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_Response{
 			Response: &cloudproxyv1alpha.ClusterResponse{
 				ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
-					PodName:   c.streamRuntimeName,
 					ClusterId: c.clusterID,
 				},
 				MessageId:    in.GetMessageId(),
@@ -352,7 +353,7 @@ func (c *Client) isAlive() error {
 	return nil
 }
 
-func (c *Client) sendKeepAlive(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient, sendCh chan<- *cloudproxyv1alpha.StreamCloudProxyRequest) error {
+func (c *Client) sendKeepAlive(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient) error {
 	ticker := time.NewTimer(time.Duration(c.keepAlive.Load()))
 	defer ticker.Stop()
 
@@ -367,7 +368,7 @@ func (c *Client) sendKeepAlive(ctx context.Context, stream cloudproxyv1alpha.Clo
 				ticker.Reset(time.Duration(c.keepAlive.Load()))
 			} else {
 				select {
-				case sendCh <- &cloudproxyv1alpha.StreamCloudProxyRequest{
+				case c.sendCh <- &cloudproxyv1alpha.StreamCloudProxyRequest{
 					Request: &cloudproxyv1alpha.StreamCloudProxyRequest_ClientStats{
 						ClientStats: &cloudproxyv1alpha.ClientStats{
 							ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
