@@ -23,10 +23,15 @@ import (
 
 	"cloud-proxy/internal/config"
 	cloudproxyv1alpha "cloud-proxy/proto/gen/proto/v1alpha"
+	"google.golang.org/grpc/encoding/gzip"
 )
 
 const (
 	KeepAliveMessageID = "keep-alive"
+
+	authorizationMetadataKey = "authorization"
+	clusterIDMetadataKey     = "cluster-id"
+	podNameMetadataKey       = "pod-name"
 )
 
 type CloudClient interface {
@@ -75,19 +80,21 @@ func New(cloudClient CloudClient, logger *logrus.Logger, version string, cfg *co
 func (c *Client) Run(ctx context.Context) error {
 	defer close(c.sendCh)
 
-	authCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs(
-		"authorization", fmt.Sprintf("Token %s", c.cfg.CastAI.APIKey),
+	streamCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs(
+		authorizationMetadataKey, fmt.Sprintf("Token %s", c.cfg.CastAI.APIKey),
+		clusterIDMetadataKey, c.clusterID,
+		podNameMetadataKey, c.podName,
 	))
 
 	t := time.NewTimer(time.Millisecond)
 
 	for {
 		select {
-		case <-authCtx.Done():
-			return authCtx.Err()
+		case <-streamCtx.Done():
+			return streamCtx.Err()
 		case <-t.C:
 			c.log.Info("Starting proxy client")
-			err := c.prepareAndRun(authCtx)
+			err := c.prepareAndRun(streamCtx)
 			if err != nil {
 				c.log.Errorf("Restarting proxy client in %vs: due to error: %v", time.Duration(c.keepAlive.Load()).Seconds(), err)
 				t.Reset(time.Duration(c.keepAlive.Load()))
@@ -116,6 +123,12 @@ func (c *Client) getStream(ctx context.Context) (cloudproxyv1alpha.CloudProxyAPI
 		MinConnectTimeout: 2 * time.Minute,
 	}
 	dialOpts = append(dialOpts, grpc.WithConnectParams(connectParams))
+
+	if c.cfg.UseCompression {
+		dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(
+			grpc.UseCompressor(gzip.Name),
+		))
+	}
 
 	c.log.Infof(
 		"Creating grpc channel against (%s) with connection config (%+v) and TLS enabled=%v",
