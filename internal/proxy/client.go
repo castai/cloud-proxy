@@ -43,11 +43,10 @@ type Client struct {
 
 	sendCh chan *cloudproxyv1alpha.StreamCloudProxyRequest
 
-	cloudClient       CloudClient
-	log               *logrus.Logger
-	podName           string
-	clusterID         string
-	streamRuntimeName string
+	cloudClient CloudClient
+	log         *logrus.Logger
+	podName     string
+	clusterID   string
 
 	errCount       atomic.Int64
 	processedCount atomic.Int64
@@ -170,7 +169,6 @@ func (c *Client) prepareAndRun(ctx context.Context) error {
 	}
 	defer closeConnection()
 
-	c.streamRuntimeName = fmt.Sprintf("stream-%s-%v", c.podName, time.Now().UnixNano())
 	c.lastSeenReceive.Store(time.Now().UnixNano())
 	c.lastSeenSend.Store(time.Now().UnixNano())
 
@@ -298,7 +296,7 @@ func (c *Client) handleMessage(ctx context.Context, in *cloudproxyv1alpha.Stream
 		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_Response{
 			Response: &cloudproxyv1alpha.ClusterResponse{
 				ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
-					PodName:   c.streamRuntimeName,
+					PodName:   c.podName,
 					ClusterId: c.clusterID,
 				},
 				MessageId:    in.GetMessageId(),
@@ -386,7 +384,7 @@ func (c *Client) sendKeepAlive(ctx context.Context, stream cloudproxyv1alpha.Clo
 					Request: &cloudproxyv1alpha.StreamCloudProxyRequest_ClientStats{
 						ClientStats: &cloudproxyv1alpha.ClientStats{
 							ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
-								PodName:   c.streamRuntimeName,
+								PodName:   c.podName,
 								ClusterId: c.clusterID,
 								Version:   c.version,
 							},
