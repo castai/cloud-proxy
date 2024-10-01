@@ -211,9 +211,11 @@ func TestClient_handleMessage(t *testing.T) {
 			args: args{
 				in: &cloudproxyv1alpha.StreamCloudProxyResponse{
 					MessageId: KeepAliveMessageID,
-					ConfigurationRequest: &cloudproxyv1alpha.ConfigurationRequest{
-						KeepAlive:        1,
-						KeepAliveTimeout: 2,
+					Response: &cloudproxyv1alpha.StreamCloudProxyResponse_ConfigurationRequest{
+						ConfigurationRequest: &cloudproxyv1alpha.ConfigurationRequest{
+							KeepAlive:        1,
+							KeepAliveTimeout: 2,
+						},
 					},
 				},
 			},
@@ -465,6 +467,12 @@ func TestClient_sendAndReceive(t *testing.T) {
 				},
 				tuneMockStream: func(m *mock_proxy.MockCloudProxyAPI_StreamCloudProxyClient) {
 					m.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("test error"))
+					m.EXPECT().Recv().DoAndReturn(func() (*cloudproxyv1alpha.StreamCloudProxyResponse, error) {
+						time.Sleep(time.Millisecond)
+						return &cloudproxyv1alpha.StreamCloudProxyResponse{}, nil
+					}).AnyTimes()
+					m.EXPECT().Context().Return(context.Background()).AnyTimes()
+					m.EXPECT().CloseSend().Return(nil)
 				},
 			},
 			wantErr: true,
@@ -518,8 +526,10 @@ func TestClient_sendAndReceive(t *testing.T) {
 					PodName: "podName",
 				},
 				KeepAlive:        time.Second,
-				KeepAliveTimeout: time.Minute,
+				KeepAliveTimeout: time.Second * 2,
 			})
+			c.lastSeenReceive.Store(time.Now().UnixNano())
+			c.lastSeenSend.Store(time.Now().UnixNano())
 			stream := mock_proxy.NewMockCloudProxyAPI_StreamCloudProxyClient(ctrl)
 			if tt.args.tuneMockStream != nil {
 				tt.args.tuneMockStream(stream)

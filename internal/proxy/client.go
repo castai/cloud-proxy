@@ -40,10 +40,11 @@ type CloudClient interface {
 type Client struct {
 	cfg *config.Config
 
-	cloudClient CloudClient
-	log         *logrus.Logger
-	podName     string
-	clusterID   string
+	cloudClient       CloudClient
+	log               *logrus.Logger
+	podName           string
+	clusterID         string
+	streamRuntimeName string
 
 	errCount       atomic.Int64
 	processedCount atomic.Int64
@@ -153,30 +154,6 @@ func (c *Client) getStream(ctx context.Context) (cloudproxyv1alpha.CloudProxyAPI
 	return stream, cancelFunc, nil
 }
 
-func (c *Client) sendInitialRequest(stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient) error {
-	c.log.Info("Sending initial request to castai")
-
-	err := stream.Send(&cloudproxyv1alpha.StreamCloudProxyRequest{
-		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_InitialRequest{
-			InitialRequest: &cloudproxyv1alpha.InitialCloudProxyRequest{
-				ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
-					PodName:   c.podName,
-					ClusterId: c.clusterID,
-				},
-				Version: c.version,
-			},
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("stream.Send: initial request %w", err)
-	}
-	c.lastSeenSend.Store(time.Now().UnixNano())
-
-	c.log.Info("Stream to castai started successfully")
-
-	return nil
-}
-
 func (c *Client) prepareAndRun(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -187,6 +164,7 @@ func (c *Client) prepareAndRun(ctx context.Context) error {
 	}
 	defer closeConnection()
 
+	c.streamRuntimeName = fmt.Sprintf("stream-%s-%v", c.podName, time.Now().UnixNano())
 	c.lastSeenReceive.Store(time.Now().UnixNano())
 	c.lastSeenSend.Store(time.Now().UnixNano())
 
@@ -194,11 +172,6 @@ func (c *Client) prepareAndRun(ctx context.Context) error {
 }
 
 func (c *Client) sendAndReceive(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAPI_StreamCloudProxyClient) error {
-	err := c.sendInitialRequest(stream)
-	if err != nil {
-		return fmt.Errorf("c.Connect: %w", err)
-	}
-
 	eg, egctx := errgroup.WithContext(ctx)
 
 	sendCh := make(chan *cloudproxyv1alpha.StreamCloudProxyRequest, 10)
@@ -228,7 +201,7 @@ func (c *Client) sendAndReceive(ctx context.Context, stream cloudproxyv1alpha.Cl
 		}
 	}()
 
-	err = eg.Wait()
+	err := eg.Wait()
 	if err != nil {
 		c.log.Errorf("sendAndReceive: closing with error: %v", err)
 	}
@@ -249,7 +222,7 @@ func (c *Client) send(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAP
 		case <-stream.Context().Done():
 			return fmt.Errorf("stream closed %w", stream.Context().Err())
 		case req := <-sendCh:
-			c.log.Printf("Sending message to stream %v", req.GetResponse().GetMessageId())
+			c.log.Printf("Sending message to stream %v len=%v", req.GetResponse().GetMessageId(), len(req.GetResponse().GetHttpResponse().GetBody()))
 			if err := stream.Send(req); err != nil {
 				c.log.WithError(err).Warn("failed to send message to stream")
 				return fmt.Errorf("failed to send message to stream: %w", err)
@@ -288,7 +261,7 @@ func (c *Client) receive(ctx context.Context, stream cloudproxyv1alpha.CloudProx
 
 		c.lastSeenReceive.Store(time.Now().UnixNano())
 		c.log.Debugf("Handling message from castai")
-		go c.handleMessage(stream.Context(), in, respCh)
+		go c.handleMessage(ctx, in, respCh)
 	}
 }
 
@@ -322,7 +295,7 @@ func (c *Client) handleMessage(ctx context.Context, in *cloudproxyv1alpha.Stream
 		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_Response{
 			Response: &cloudproxyv1alpha.ClusterResponse{
 				ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
-					PodName:   c.podName,
+					PodName:   c.streamRuntimeName,
 					ClusterId: c.clusterID,
 				},
 				MessageId:    in.GetMessageId(),
@@ -335,15 +308,15 @@ func (c *Client) handleMessage(ctx context.Context, in *cloudproxyv1alpha.Stream
 }
 
 func (c *Client) processConfigurationRequest(in *cloudproxyv1alpha.StreamCloudProxyResponse) {
-	if in.ConfigurationRequest == nil {
+	if in.GetConfigurationRequest() == nil {
 		return
 	}
 
-	if in.ConfigurationRequest.GetKeepAlive() != 0 {
-		c.keepAlive.Store(in.ConfigurationRequest.GetKeepAlive())
+	if in.GetConfigurationRequest().GetKeepAlive() != 0 {
+		c.keepAlive.Store(in.GetConfigurationRequest().GetKeepAlive())
 	}
-	if in.ConfigurationRequest.GetKeepAliveTimeout() != 0 {
-		c.keepAliveTimeout.Store(in.ConfigurationRequest.GetKeepAliveTimeout())
+	if in.GetConfigurationRequest().GetKeepAliveTimeout() != 0 {
+		c.keepAliveTimeout.Store(in.GetConfigurationRequest().GetKeepAliveTimeout())
 	}
 
 	c.log.Debugf("Updated keep-alive configuration to %v and keep-alive timeout to %v", time.Duration(c.keepAlive.Load()).Seconds(), time.Duration(c.keepAliveTimeout.Load()).Seconds())
@@ -383,8 +356,8 @@ func (c *Client) isAlive() error {
 	lastSeenSendDiff := time.Now().UnixNano() - lastSeenSend
 
 	if lastSeenReceiveDiff > keepAliveTimeout || lastSeenSendDiff > keepAliveTimeout {
-		c.log.Warnf("last seen receive %v, last seen send %v",
-			time.Duration(lastSeenReceiveDiff).Seconds(), time.Duration(lastSeenSendDiff).Seconds())
+		c.log.Warnf("last seen receive %v, last seen send %v %v",
+			time.Duration(lastSeenReceiveDiff).Seconds(), time.Duration(lastSeenSendDiff).Seconds(), errAlive)
 		return errAlive
 	}
 
@@ -410,11 +383,11 @@ func (c *Client) sendKeepAlive(ctx context.Context, stream cloudproxyv1alpha.Clo
 					Request: &cloudproxyv1alpha.StreamCloudProxyRequest_ClientStats{
 						ClientStats: &cloudproxyv1alpha.ClientStats{
 							ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
-								PodName:   c.podName,
+								PodName:   c.streamRuntimeName,
 								ClusterId: c.clusterID,
+								Version:   c.version,
 							},
 							Stats: &cloudproxyv1alpha.ClientStats_Stats{
-								Status:    cloudproxyv1alpha.ClientStats_Stats_OK,
 								Timestamp: time.Now().UnixNano(),
 							},
 						},
