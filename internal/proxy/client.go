@@ -285,6 +285,7 @@ func (c *Client) handleMessage(ctx context.Context, in *cloudproxyv1alpha.Stream
 		Request: &cloudproxyv1alpha.StreamCloudProxyRequest_Response{
 			Response: &cloudproxyv1alpha.ClusterResponse{
 				ClientMetadata: &cloudproxyv1alpha.ClientMetadata{
+					PodName:   c.streamRuntimeName,
 					ClusterId: c.clusterID,
 				},
 				MessageId:    in.GetMessageId(),
