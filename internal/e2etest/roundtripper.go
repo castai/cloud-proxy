@@ -32,20 +32,22 @@ func (p *HTTPOverGrpcRoundTripper) RoundTrip(request *http.Request) (*http.Respo
 
 	protoReq := &cloudproxyv1alpha.StreamCloudProxyResponse{
 		MessageId: requestID,
-		HttpRequest: &cloudproxyv1alpha.HTTPRequest{
-			Method:  request.Method,
-			Path:    request.URL.String(),
-			Headers: headers,
-			Body: func() []byte {
-				if request.Body == nil {
-					return []byte{}
-				}
-				body, err := io.ReadAll(request.Body)
-				if err != nil {
-					panic(fmt.Sprintf("Failed to read body: %v", err))
-				}
-				return body
-			}(),
+		Response: &cloudproxyv1alpha.StreamCloudProxyResponse_HttpRequest{
+			HttpRequest: &cloudproxyv1alpha.HTTPRequest{
+				Method:  request.Method,
+				Path:    request.URL.String(),
+				Headers: headers,
+				Body: func() []byte {
+					if request.Body == nil {
+						return []byte{}
+					}
+					body, err := io.ReadAll(request.Body)
+					if err != nil {
+						panic(fmt.Sprintf("Failed to read body: %v", err))
+					}
+					return body
+				}(),
+			},
 		},
 	}
 	waiter, err := p.dispatcher.SendRequest(protoReq)

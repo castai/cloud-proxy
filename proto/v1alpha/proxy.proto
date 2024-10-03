@@ -19,47 +19,30 @@ service CloudProxyAPI {
 
 message StreamCloudProxyRequest {
   oneof request {
-    // Initial request to establish the connection.
-    InitialCloudProxyRequest initial_request = 1;
     ClientStats client_stats = 2;
     ClusterResponse response = 3;
   }
 }
 
-message InitialCloudProxyRequest {
-  ClientMetadata client_metadata = 1;
-  string version = 2;
-}
-
-
 message ClientStats {
   ClientMetadata client_metadata = 1;
   message Stats {
-    // Status of the cluster client.
-    enum Status {
-      UNKNOWN = 0;
-      OK = 1;
-      CLOSING = 2;
-    }
-    Status status = 2;
-
-    int64 timestamp = 3;
+    int64 timestamp = 2;
     // The total number of RPCs that started.
-    int64 num_calls_started = 4;
+    int64 num_calls_started = 3;
 
     // The total number of RPCs that finished.
-    int64 num_calls_finished = 5;
+    int64 num_calls_finished = 4;
 
     // The total number of RPCs that failed to reach a server except dropped RPCs.
-    int64 num_calls_finished_with_client_failed_to_send = 6;
+    int64 num_calls_finished_with_client_failed_to_send = 5;
 
     // The total number of RPCs that finished and are known to have been received
     // by a server.
-    int64 num_calls_finished_known_received = 7;
+    int64 num_calls_finished_known_received = 6;
   }
   Stats stats = 2;
 }
-
 
 message ClusterResponse {
   optional ClientMetadata client_metadata = 1;
@@ -68,15 +51,17 @@ message ClusterResponse {
 }
 
 message CloudProxyRequest {
-  string message_id = 3;
-  optional HTTPRequest http_request = 4;
+  string message_id = 1;
+  optional HTTPRequest http_request = 2;
 }
 
 message StreamCloudProxyResponse {
   optional ClientMetadata client_metadata = 1;
   string message_id = 2;
-  optional HTTPRequest http_request = 3;
-  optional ConfigurationRequest configuration_request = 4;
+  oneof response {
+    HTTPRequest http_request = 3;
+    ConfigurationRequest configuration_request = 4;
+  }
 }
 
 message ConfigurationRequest {
@@ -116,4 +101,5 @@ message ClientMetadata {
   string cluster_id = 1;
   optional string organization_id = 2;
   string pod_name = 3;
+  string version = 4;
 }
