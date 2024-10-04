@@ -222,7 +222,10 @@ func (c *Client) send(ctx context.Context, stream cloudproxyv1alpha.CloudProxyAP
 			return ctx.Err()
 		case <-stream.Context().Done():
 			return fmt.Errorf("stream closed %w", stream.Context().Err())
-		case req := <-c.sendCh:
+		case req, ok := <-c.sendCh:
+			if !ok {
+				return fmt.Errorf("send channel closed %w", ctx.Err())
+			}
 			c.log.Printf("Sending message to stream %v len=%v", req.GetResponse().GetMessageId(), len(req.GetResponse().GetHttpResponse().GetBody()))
 			if err := stream.Send(req); err != nil {
 				c.log.WithError(err).Warn("failed to send message to stream")
@@ -329,7 +332,7 @@ func (c *Client) processHTTPRequest(req *cloudproxyv1alpha.HTTPRequest) *cloudpr
 			Error: lo.ToPtr("nil http request"),
 		}
 	}
-	httpReq, err := c.toHTTPRequest(req)
+	httpReq, err := toHTTPRequest(req)
 	if err != nil {
 		return &cloudproxyv1alpha.HTTPResponse{
 			Error: lo.ToPtr(fmt.Sprintf("toHTTPRequest: %v", err)),
@@ -344,7 +347,7 @@ func (c *Client) processHTTPRequest(req *cloudproxyv1alpha.HTTPRequest) *cloudpr
 	}
 	c.processedCount.Add(1)
 
-	return c.toResponse(resp)
+	return toResponse(resp)
 }
 
 var errAlive = fmt.Errorf("client connection is not alive")
@@ -401,7 +404,7 @@ func (c *Client) sendKeepAlive(ctx context.Context, stream cloudproxyv1alpha.Clo
 						return fmt.Errorf("stream ended with %w", stream.Context().Err())
 					}
 					if err := c.isAlive(); err != nil {
-						return err
+						return fmt.Errorf("isAlive: %w", err)
 					}
 				}
 			}
@@ -411,7 +414,7 @@ func (c *Client) sendKeepAlive(ctx context.Context, stream cloudproxyv1alpha.Clo
 
 var errBadRequest = fmt.Errorf("bad request")
 
-func (c *Client) toHTTPRequest(req *cloudproxyv1alpha.HTTPRequest) (*http.Request, error) {
+func toHTTPRequest(req *cloudproxyv1alpha.HTTPRequest) (*http.Request, error) {
 	if req == nil {
 		return nil, fmt.Errorf("nil http request %w", errBadRequest)
 	}
@@ -430,7 +433,7 @@ func (c *Client) toHTTPRequest(req *cloudproxyv1alpha.HTTPRequest) (*http.Reques
 	return reqHTTP, nil
 }
 
-func (c *Client) toResponse(resp *http.Response) *cloudproxyv1alpha.HTTPResponse {
+func toResponse(resp *http.Response) *cloudproxyv1alpha.HTTPResponse {
 	if resp == nil {
 		return &cloudproxyv1alpha.HTTPResponse{
 			Error: lo.ToPtr("nil response"),
