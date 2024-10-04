@@ -404,7 +404,7 @@ func (c *Client) sendKeepAlive(ctx context.Context, stream cloudproxyv1alpha.Clo
 						return fmt.Errorf("stream ended with %w", stream.Context().Err())
 					}
 					if err := c.isAlive(); err != nil {
-						return err
+						return fmt.Errorf("isAlive: %w", err)
 					}
 				}
 			}
