@@ -451,9 +451,9 @@ func TestClient_Run(t *testing.T) {
 		ctx func() context.Context
 	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
+		name       string
+		args       args
+		wantErrMsg string
 	}{
 		{
 			name: "context done",
@@ -464,17 +464,17 @@ func TestClient_Run(t *testing.T) {
 					return ctx
 				},
 			},
-			wantErr: true,
+			wantErrMsg: "context canceled",
 		},
 		{
-			name: "get stream error",
+			name: "retrying get stream error till context exceeded",
 			args: args{
 				ctx: func() context.Context {
 					ctx, _ := context.WithTimeout(context.Background(), time.Second*2)
 					return ctx
 				},
 			},
-			wantErr: true,
+			wantErrMsg: "context deadline exceeded",
 		},
 	}
 	for _, tt := range tests {
@@ -485,8 +485,10 @@ func TestClient_Run(t *testing.T) {
 			defer ctrl.Finish()
 
 			c := New(nil, logrus.New(), "tt.fields.version", &config.Config{KeepAlive: time.Second, KeepAliveTimeout: time.Hour})
-			if err := c.Run(tt.args.ctx()); (err != nil) != tt.wantErr {
-				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
+			err := c.Run(tt.args.ctx())
+			require.Equal(t, len(tt.wantErrMsg) > 0, err != nil, "error: %v", err)
+			if err != nil {
+				require.Equal(t, tt.wantErrMsg, err.Error(), "error: %v", err)
 			}
 		})
 	}
