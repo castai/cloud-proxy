@@ -45,17 +45,10 @@ type PodMetadata struct {
 type CastAPI struct {
 	// APIKey is the API key used to authenticate to CAST AI API.
 	APIKey string `mapstructure:"apikey"`
-	// URL is the URL of CAST AI REST API.
-	URL string `mapstructure:"url"`
 	// GrpcURL is the URL of CAST AI gRPC API.
 	GrpcURL string `mapstructure:"grpcurl"`
 	// DisableGRPCTLS disables TLS for gRPC connection. Should only be used for testing.
 	DisableGRPCTLS bool `mapstructure:"disablegrpctls"`
-}
-
-type GCP struct {
-	CredentialsJSON   string
-	UseMetadataServer bool
 }
 
 type Log struct {
@@ -102,9 +95,6 @@ func Get() Config {
 	}
 	if cfg.CastAI.GrpcURL == "" {
 		required("CAST_GRPC_URL")
-	}
-	if cfg.CastAI.URL == "" {
-		required("CAST_URL")
 	}
 	if cfg.ClusterID == "" {
 		required("CLUSTER_ID")
