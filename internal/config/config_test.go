@@ -15,7 +15,6 @@ func TestConfig(t *testing.T) {
 	clusterID := uuid.New()
 
 	t.Setenv("CAST_API_KEY", "API_KEY")
-	t.Setenv("CAST_URL", "cast-url")
 	t.Setenv("CAST_GRPC_URL", "cast-grpc-url")
 	t.Setenv("CAST_DISABLE_GRPC_TLS", "true")
 
@@ -31,7 +30,6 @@ func TestConfig(t *testing.T) {
 	expected := Config{
 		CastAI: CastAPI{
 			APIKey:         "API_KEY",
-			URL:            "cast-url",
 			GrpcURL:        "cast-grpc-url",
 			DisableGRPCTLS: true,
 		},
